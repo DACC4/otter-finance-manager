@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: otter
+      POSTGRES_PASSWORD: otter
+      POSTGRES_DB: otter
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    command: gunicorn otter_finance_manager.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SECRET_KEY: "replace-me"
+      DJANGO_DEBUG: "False"
+      DATABASE_URL: "postgres://otter:otter@db:5432/otter"
+      DJANGO_ALLOWED_HOSTS: "*"
+    depends_on:
+      - db
+
+volumes:
+  db-data:

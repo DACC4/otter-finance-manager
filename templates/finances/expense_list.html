@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load finances_extras %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h1>Expenses</h1>
+    <a class="btn" href="{% url 'finances:expense_add' %}">+ Add expense</a>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden;">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Your share</th>
+                <th>Frequency</th>
+                <th>Due month</th>
+                <th>Split</th>
+                <th>Tags</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in object_list %}
+            <tr class="clickable-row" onclick="if(event.target.tagName!=='A')window.location='{% url 'finances:expense_edit' expense.pk %}';">
+                <td><strong>{{ expense.name }}</strong></td>
+                <td class="mono">{% amount expense|share_for:user %}</td>
+                <td class="muted">{{ expense.get_frequency_display }}</td>
+                <td class="muted">{{ expense.target_month|default:"—" }}</td>
+                <td>
+                    {% if expense.shared_with.count %}
+                        <span class="pill">{{ expense.participant_count }} people</span>
+                    {% else %}
+                        <span class="muted">Solo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% for tag in expense.tags.all %}
+                        <span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span>
+                    {% endfor %}
+                </td>
+                <td style="white-space:nowrap;">
+                    <a class="action-btn action-btn-edit" href="{% url 'finances:expense_edit' expense.pk %}" onclick="event.stopPropagation();">Edit</a>
+                    <a class="action-btn action-btn-del" href="{% url 'finances:expense_delete' expense.pk %}" onclick="event.stopPropagation();">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="padding:28px;text-align:center;font-style:italic;" class="muted">
+                    No expenses yet. <a href="{% url 'finances:expense_add' %}" style="color:var(--primary);">Add your first one.</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

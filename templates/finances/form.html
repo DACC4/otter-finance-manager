@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .form-card { max-width: 500px; margin: 0 auto; }
+    .form-card h2 { margin-bottom: 20px; }
+    .field-wrap { margin-top: 16px; }
+    .field-errors { color: var(--expense); font-size: 12px; margin-top: 4px; }
+    .non-field-errors {
+        background: var(--expense-lt);
+        border: 1px solid #FECACA;
+        color: var(--expense);
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 13px;
+    }
+    .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
+</style>
+
+<div class="card form-card">
+    <h2>{{ title }}</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="non-field-errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+            {% if field.name == 'target_month' %}
+                <div id="field_target_month" class="field-wrap">
+                    <label for="id_{{ field.name }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% elif field.name == 'thirteenth_month_bucket' %}
+                <div id="field_thirteenth_month_bucket" class="field-wrap">
+                    <label for="id_{{ field.name }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% elif field.name == 'thirteenth_month_expense' %}
+                <div id="field_thirteenth_month_expense" class="field-wrap">
+                    <label for="id_{{ field.name }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% else %}
+                <div class="field-wrap">
+                    <label for="id_{{ field.name }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit">Save</button>
+            <a href="javascript:history.back()" class="btn secondary">Cancel</a>
+        </div>
+    </form>
+
+    <script>
+        // Hide target_month unless frequency = annual
+        (function(){
+            var freq = document.querySelector('[name="frequency"]');
+            var wrap = document.getElementById('field_target_month');
+            if (!freq || !wrap) return;
+            function update() { wrap.style.display = freq.value.toLowerCase() === 'annual' ? '' : 'none'; }
+            update();
+            freq.addEventListener('change', update);
+        })();
+
+        // Hide 13th-month allocation fields unless months_per_year = 13
+        (function(){
+            var mpy = document.querySelector('[name="months_per_year"]');
+            var bkt = document.getElementById('field_thirteenth_month_bucket');
+            var exp = document.getElementById('field_thirteenth_month_expense');
+            if (!mpy) return;
+            function update() {
+                var show = mpy.value === '13';
+                if (bkt) bkt.style.display = show ? '' : 'none';
+                if (exp) exp.style.display = show ? '' : 'none';
+            }
+            update();
+            mpy.addEventListener('change', update);
+        })();
+    </script>
+</div>
+{% endblock %}

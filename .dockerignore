@@ -1,0 +1,28 @@
+# Git
+.git/
+.github/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Runtime-generated artifacts
+*.sqlite3
+staticfiles/
+node_modules/
+
+# Docker files (not needed inside the image)
+Dockerfile*
+docker-compose*

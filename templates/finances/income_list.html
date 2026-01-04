@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load finances_extras %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h1>Income</h1>
+    <a class="btn" href="{% url 'finances:income_add' %}">+ Add income</a>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden;">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Monthly</th>
+                <th>Frequency</th>
+                <th>Tags</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for income in object_list %}
+            <tr class="clickable-row" onclick="if(event.target.tagName!=='A')window.location='{% url 'finances:income_edit' income.pk %}';">
+                <td><strong>{{ income.name }}</strong></td>
+                <td class="mono">{% amount income.monthly_amount %}</td>
+                <td class="muted">
+                    {{ income.get_frequency_display }}
+                    {% if income.months_per_year == 13 %}<span class="pill" style="margin-left:4px;">13 months</span>{% endif %}
+                </td>
+                <td>
+                    {% for tag in income.tags.all %}
+                        <span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span>
+                    {% endfor %}
+                </td>
+                <td style="white-space:nowrap;">
+                    <a class="action-btn action-btn-edit" href="{% url 'finances:income_edit' income.pk %}" onclick="event.stopPropagation();">Edit</a>
+                    <a class="action-btn action-btn-del" href="{% url 'finances:income_delete' income.pk %}" onclick="event.stopPropagation();">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="padding:28px;text-align:center;font-style:italic;" class="muted">
+                    No income sources yet. <a href="{% url 'finances:income_add' %}" style="color:var(--primary);">Add your first one.</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

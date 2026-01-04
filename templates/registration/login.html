@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .login-wrap { max-width: 380px; margin: 48px auto 0; }
+    .login-brand {
+        text-align: center;
+        margin-bottom: 20px;
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 22px;
+        color: var(--ink);
+        letter-spacing: -0.01em;
+    }
+    .login-brand span { font-size: 28px; display: block; margin-bottom: 4px; }
+    .login-sub { text-align: center; color: var(--ink-3); font-size: 13px; margin-bottom: 24px; }
+    .error-box {
+        background: var(--expense-lt);
+        border: 1px solid #FECACA;
+        color: var(--expense);
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin-bottom: 14px;
+        font-size: 13px;
+    }
+    .login-wrap .card { padding: 28px 28px 24px; }
+    .login-wrap form button[type="submit"] { width: 100%; margin-top: 20px; padding: 11px; }
+</style>
+
+<div class="login-wrap">
+    <div class="login-brand">
+        <span>🦦</span>
+        Otter Finance
+    </div>
+    <p class="login-sub">Sign in to your account</p>
+
+    <div class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            {% if form.non_field_errors %}<div class="error-box">{{ form.non_field_errors }}</div>{% endif %}
+
+            <div class="field-wrap">
+                <label for="id_username">Username</label>
+                {% if form.username.errors %}<div class="error-box" style="margin-top:4px;margin-bottom:6px;">{{ form.username.errors }}</div>{% endif %}
+                {{ form.username }}
+            </div>
+
+            <div class="field-wrap">
+                <label for="id_password">Password</label>
+                {% if form.password.errors %}<div class="error-box" style="margin-top:4px;margin-bottom:6px;">{{ form.password.errors }}</div>{% endif %}
+                {{ form.password }}
+            </div>
+
+            <button type="submit">Sign in</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
