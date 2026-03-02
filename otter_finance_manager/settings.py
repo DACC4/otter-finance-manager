@@ -38,6 +38,14 @@ ALLOWED_HOSTS = [
     if h
 ]
 
+# Required in Django 4.0+ when served over HTTPS or behind a reverse proxy.
+# Set to e.g. "https://finance.example.com" (comma-separated for multiple).
+CSRF_TRUSTED_ORIGINS = [
+    o
+    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o
+]
+
 
 # Application definition
 
