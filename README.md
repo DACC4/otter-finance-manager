@@ -10,6 +10,7 @@ Django web app for tracking personal and shared finances: income, recurring expe
 - **Savings goals** — target amount + deadline; calculates required monthly contribution
 - **Dashboard** — summary of income, expenses, savings, and leftover fun money; filterable by tag
 - **Tags** — color-coded labels to categorize any of the above
+- **Site settings** — admin-configurable currency symbol/position and date display format
 
 ---
 
@@ -62,9 +63,8 @@ Open http://localhost:8000.
 | `DJANGO_SECRET_KEY` | insecure default | **Set this in production** |
 | `DJANGO_DEBUG` | `False` | Set to `true` only for development |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hostnames |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | _(empty)_ | **Required when behind a reverse proxy or HTTPS.** Comma-separated origins including scheme, e.g. `https://finance.example.com` |
 | `DATABASE_URL` | SQLite | PostgreSQL URL, e.g. `postgres://user:pass@host:5432/db` |
-| `DEFAULT_CURRENCY` | `USD` | Currency symbol shown in the UI |
-| `DEFAULT_LOCALE` | `en_US` | Locale for number formatting |
 
 ### Using the published image
 
@@ -99,6 +99,7 @@ services:
       DJANGO_SECRET_KEY: "change-me"
       DATABASE_URL: "postgres://otter:otter@db:5432/otter"
       DJANGO_ALLOWED_HOSTS: "yourdomain.com"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "https://yourdomain.com"
     depends_on:
       - db
 
