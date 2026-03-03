@@ -69,6 +69,8 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         self._user = user
         self.fields["target_month"].help_text = "Only relevant for annual expenses."
         self.fields["payer"].empty_label = "No single payer (everyone pays directly)"
+        if user:
+            self.fields["shared_with"].queryset = User.objects.exclude(pk=user.pk)
         if self.instance.pk:
             participant_pks = [self.instance.owner_id] + list(
                 self.instance.shared_with.values_list("pk", flat=True)
