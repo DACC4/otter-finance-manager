@@ -1,5 +1,6 @@
+from collections import defaultdict
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from django.db.models import Q
 from django.utils import timezone
@@ -78,4 +79,59 @@ def calculate_financial_snapshot(user, as_of=None) -> Dict[str, Decimal]:
         "annual_savings_balance": annual_savings_balance,
         "annual_monthly_saving": annual_monthly_saving,
         "thirteenth_month_total": thirteenth_month_total,
+    }
+
+
+def calculate_debts(user) -> Dict[str, List[Tuple]]:
+    """
+    Returns debts involving `user` based on expenses where payer is set.
+
+    Returns:
+        {
+            "owed_to_me":  [(other_user, monthly, yearly), ...],
+            "i_owe":       [(other_user, monthly, yearly), ...],
+        }
+    """
+    # All expenses with a payer where this user is involved
+    payer_expenses = Expense.objects.filter(
+        payer__isnull=False
+    ).filter(
+        Q(owner=user) | Q(shared_with=user)
+    ).distinct().select_related("payer", "owner").prefetch_related("shared_with")
+
+    owed_to_me: Dict = defaultdict(Decimal)
+    i_owe: Dict = defaultdict(Decimal)
+
+    for expense in payer_expenses:
+        if expense.payer == user:
+            # Others owe me their share
+            for participant in expense.participants():
+                if participant != user:
+                    owed_to_me[participant] += expense.share_for(participant)
+        else:
+            # I owe the payer my share
+            my_share = expense.share_for(user)
+            if my_share > 0:
+                i_owe[expense.payer] += my_share
+
+    # Net out bilateral debts: only show the direction of the larger side
+    all_parties = set(owed_to_me) | set(i_owe)
+    net_owed_to_me = {}
+    net_i_owe = {}
+    for party in all_parties:
+        net = owed_to_me.get(party, Decimal("0")) - i_owe.get(party, Decimal("0"))
+        if net > 0:
+            net_owed_to_me[party] = net
+        elif net < 0:
+            net_i_owe[party] = -net
+
+    return {
+        "owed_to_me": [
+            (other, monthly, (monthly * 12).quantize(Decimal("0.01")))
+            for other, monthly in sorted(net_owed_to_me.items(), key=lambda x: x[0].username)
+        ],
+        "i_owe": [
+            (other, monthly, (monthly * 12).quantize(Decimal("0.01")))
+            for other, monthly in sorted(net_i_owe.items(), key=lambda x: x[0].username)
+        ],
     }

@@ -110,6 +110,14 @@ class Expense(models.Model):
         related_name="shared_expenses",
         blank=True,
     )
+    payer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="fronted_expenses",
+        help_text="Who pays this bill upfront. Leave blank if everyone pays their own share directly.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

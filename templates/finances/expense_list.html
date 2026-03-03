@@ -15,7 +15,7 @@
                 <th>Your share</th>
                 <th>Frequency</th>
                 <th>Due month</th>
-                <th>Split</th>
+                <th>Payer</th>
                 <th>Tags</th>
                 <th></th>
             </tr>
@@ -28,8 +28,12 @@
                 <td class="muted">{{ expense.get_frequency_display }}</td>
                 <td class="muted">{{ expense.target_month|default:"—" }}</td>
                 <td>
-                    {% if expense.shared_with.count %}
-                        <span class="pill">{{ expense.participant_count }} people</span>
+                    {% if expense.payer %}
+                        <span class="pill {% if expense.payer == user %}pill-me{% endif %}">
+                            {{ expense.payer.get_full_name|default:expense.payer.username }}
+                        </span>
+                    {% elif expense.shared_with.count %}
+                        <span class="muted">Split</span>
                     {% else %}
                         <span class="muted">Solo</span>
                     {% endif %}
@@ -54,4 +58,32 @@
         </tbody>
     </table>
 </div>
+
+{% if debts.owed_to_me or debts.i_owe %}
+<div class="card" style="margin-top:24px;">
+    <h2 style="margin-top:0;margin-bottom:16px;">Balances</h2>
+    {% if debts.owed_to_me %}
+    <div style="margin-bottom:16px;">
+        <h3 style="font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin:0 0 8px;">Owed to you</h3>
+        {% for other, monthly, yearly in debts.owed_to_me %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span><strong>{{ other.get_full_name|default:other.username }}</strong> owes you</span>
+            <span style="color:var(--success,#16a34a);" class="mono">{% amount monthly %}/mo &nbsp;<span class="muted">({% amount yearly %}/yr)</span></span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if debts.i_owe %}
+    <div>
+        <h3 style="font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin:0 0 8px;">You owe</h3>
+        {% for other, monthly, yearly in debts.i_owe %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>You owe <strong>{{ other.get_full_name|default:other.username }}</strong></span>
+            <span style="color:var(--danger,#dc2626);" class="mono">{% amount monthly %}/mo &nbsp;<span class="muted">({% amount yearly %}/yr)</span></span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 {% endblock %}

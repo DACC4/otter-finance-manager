@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from .forms import ExpenseForm, IncomeForm, SavingBucketForm, SavingsGoalForm, TagForm
 from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal, Tag
-from .services import calculate_financial_snapshot
+from .services import calculate_debts, calculate_financial_snapshot
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -281,6 +281,11 @@ class ExpenseListView(LoginRequiredMixin, ListView):
             Q(owner=self.request.user) | Q(shared_with=self.request.user)
         ).distinct()
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["debts"] = calculate_debts(self.request.user)
+        return ctx
+
 
 class ExpenseCreateView(OwnerCreateMixin, CreateView):
     model = Expense
@@ -310,14 +315,6 @@ class ExpenseUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
         kwargs["user"] = self.request.user
         return kwargs
 
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        # If the current user is not the owner, they should not be able to change members
-        obj = self.get_object()
-        if self.request.user != obj.owner:
-            # remove the shared_with field so it isn't editable by participants
-            form.fields.pop("shared_with", None)
-        return form
 
 
 class ExpenseDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):

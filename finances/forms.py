@@ -1,9 +1,12 @@
 import calendar
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from .models import Expense, Income, SavingBucket, SavingsGoal, Tag
+
+User = get_user_model()
 
 
 class UserTagsMixin:
@@ -57,10 +60,18 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["target_month"].help_text = "Only relevant for annual expenses."
+        self.fields["payer"].empty_label = "No single payer (everyone pays directly)"
+        if self.instance.pk:
+            participant_pks = [self.instance.owner_id] + list(
+                self.instance.shared_with.values_list("pk", flat=True)
+            )
+            self.fields["payer"].queryset = User.objects.filter(pk__in=participant_pks)
+        else:
+            self.fields["payer"].queryset = User.objects.all()
 
     class Meta:
         model = Expense
-        fields = ["name", "amount", "frequency", "target_month", "tags", "shared_with"]
+        fields = ["name", "amount", "frequency", "target_month", "tags", "shared_with", "payer"]
         widgets = {
             "tags": forms.SelectMultiple(attrs={"size": 3}),
             "shared_with": forms.SelectMultiple(attrs={"size": 3}),
