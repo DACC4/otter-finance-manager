@@ -39,7 +39,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% for tag in expense.tags.all %}
+                    {% for tag in expense|tags_for:user %}
                         <span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span>
                     {% endfor %}
                 </td>

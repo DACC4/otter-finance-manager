@@ -104,7 +104,6 @@ class Expense(models.Model):
         null=True,
         help_text="Month (1-12) when this annual expense is paid",
     )
-    tags = models.ManyToManyField(Tag, related_name="expenses", blank=True)
     shared_with = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="shared_expenses",
@@ -191,6 +190,27 @@ class Expense(models.Model):
         monthly_share = self.share_for(user)
         months_saved = self.months_into_cycle(as_of=as_of)
         return (monthly_share * Decimal(months_saved)).quantize(Decimal("0.01"))
+
+
+class UserExpenseTag(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="expense_tags",
+    )
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.CASCADE,
+        related_name="user_tags",
+    )
+    tag = models.ForeignKey(
+        Tag,
+        on_delete=models.CASCADE,
+        related_name="expense_links",
+    )
+
+    class Meta:
+        unique_together = [("user", "expense", "tag")]
 
 
 class SavingBucket(models.Model):

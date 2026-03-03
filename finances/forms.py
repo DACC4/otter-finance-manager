@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
-from .models import Expense, Income, SavingBucket, SavingsGoal, Tag
+from .models import Expense, Income, SavingBucket, SavingsGoal, Tag, UserExpenseTag
 
 User = get_user_model()
 
@@ -57,8 +57,16 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
 
 
 class ExpenseForm(UserTagsMixin, forms.ModelForm):
+    tags = forms.ModelMultipleChoiceField(
+        queryset=Tag.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple(attrs={"size": 3}),
+    )
+
     def __init__(self, *args, **kwargs):
+        user = kwargs.get("user")   # peek before UserTagsMixin pops it
         super().__init__(*args, **kwargs)
+        self._user = user
         self.fields["target_month"].help_text = "Only relevant for annual expenses."
         self.fields["payer"].empty_label = "No single payer (everyone pays directly)"
         if self.instance.pk:
@@ -66,14 +74,29 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
                 self.instance.shared_with.values_list("pk", flat=True)
             )
             self.fields["payer"].queryset = User.objects.filter(pk__in=participant_pks)
+            if user:
+                self.initial["tags"] = Tag.objects.filter(
+                    expense_links__expense=self.instance,
+                    expense_links__user=user,
+                )
         else:
             self.fields["payer"].queryset = User.objects.all()
 
+    def save(self, commit=True):
+        expense = super().save(commit=commit)
+        if commit and self._user:
+            tags = self.cleaned_data.get("tags", [])
+            UserExpenseTag.objects.filter(user=self._user, expense=expense).delete()
+            UserExpenseTag.objects.bulk_create([
+                UserExpenseTag(user=self._user, expense=expense, tag=tag)
+                for tag in tags
+            ])
+        return expense
+
     class Meta:
         model = Expense
-        fields = ["name", "amount", "frequency", "target_month", "tags", "shared_with", "payer"]
+        fields = ["name", "amount", "frequency", "target_month", "shared_with", "payer"]
         widgets = {
-            "tags": forms.SelectMultiple(attrs={"size": 3}),
             "shared_with": forms.SelectMultiple(attrs={"size": 3}),
             "target_month": forms.Select(
                 choices=[("", "---------")]

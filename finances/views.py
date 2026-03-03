@@ -38,7 +38,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         if tag_id:
             incomes_qs = incomes_qs.filter(tags__id=tag_id)
-            expenses_qs = expenses_qs.filter(tags__id=tag_id)
+            expenses_qs = expenses_qs.filter(user_tags__user=user, user_tags__tag_id=tag_id)
             saving_buckets_qs = saving_buckets_qs.filter(tags__id=tag_id)
             savings_goals_qs = savings_goals_qs.filter(tags__id=tag_id)
 
@@ -140,7 +140,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         for tag in tags:
             # sum share_for(user) for expenses that include this tag
             total = sum(
-                (exp.share_for(user) for exp in expenses_qs.filter(tags=tag)),
+                (exp.share_for(user) for exp in expenses_qs.filter(user_tags__user=user, user_tags__tag_id=tag.id)),
                 start=Decimal("0"),
             )
             if total > 0:

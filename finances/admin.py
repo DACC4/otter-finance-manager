@@ -20,7 +20,7 @@ class IncomeAdmin(admin.ModelAdmin):
 class ExpenseAdmin(admin.ModelAdmin):
     list_display = ("name", "owner", "amount", "frequency", "created_at")
     list_filter = ("frequency", "owner")
-    filter_horizontal = ("tags", "shared_with")
+    filter_horizontal = ("shared_with",)
 
 
 @admin.register(SavingBucket)

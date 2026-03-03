@@ -309,7 +309,7 @@
                 <td>{{ expense.name }}</td>
                 <td class="mono">{% amount expense|annual_share_for:user %}</td>
                 <td class="muted">{{ expense.target_month|default:"—" }}</td>
-                <td>{% for tag in expense.tags.all %}<span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span> {% endfor %}</td>
+                <td>{% for tag in expense|tags_for:user %}<span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span> {% endfor %}</td>
             </tr>
             {% empty %}
             <tr><td colspan="4" class="muted" style="font-style:italic;">No annual expenses due this month.</td></tr>

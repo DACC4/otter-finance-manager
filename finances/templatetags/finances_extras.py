@@ -16,6 +16,13 @@ def annual_share_for(expense, user):
     return expense.annual_share_for(user)
 
 
+@register.filter
+def tags_for(expense, user):
+    """Return this user's personal tags on an expense."""
+    from ..models import Tag
+    return Tag.objects.filter(expense_links__expense=expense, expense_links__user=user)
+
+
 @register.simple_tag(takes_context=True)
 def amount(context, value):
     cfg = context.get("site_settings")
