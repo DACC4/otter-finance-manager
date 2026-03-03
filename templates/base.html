@@ -31,6 +31,28 @@
             --r:           8px;
         }
 
+        [data-theme="dark"] {
+            --bg:          #1C1917;
+            --surface:     #242018;
+            --surface-2:   #2C2820;
+            --border:      #3D3730;
+            --ink:         #F0EBE3;
+            --ink-2:       #A8A29E;
+            --ink-3:       #78716C;
+            --primary:     #2D6A4F;
+            --primary-h:   #40916C;
+            --accent:      #F59E0B;
+            --accent-lt:   #3D2400;
+            --income:      #4ADE80;
+            --income-lt:   #052E16;
+            --expense:     #F87171;
+            --expense-lt:  #3F0B0B;
+            --bucket:      #60A5FA;
+            --bucket-lt:   #0C1A4E;
+            --goal:        #A78BFA;
+            --goal-lt:     #2D1463;
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -92,6 +114,20 @@
         nav a.active { color: #fff; border-bottom-color: var(--accent); }
         .nav-spacer { flex: 1; }
         .nav-sep { width: 1px; background: rgba(255,255,255,0.1); margin: 12px 4px; }
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.58);
+            font-size: 15px;
+            cursor: pointer;
+            padding: 0 13px;
+            display: flex;
+            align-items: center;
+            transition: color 0.15s;
+            font-family: inherit;
+            line-height: 1;
+        }
+        .theme-toggle:hover { color: #fff; }
 
         /* ── Layout ── */
         .container {
@@ -275,6 +311,13 @@
         .muted { color: var(--ink-2); }
         .help-text { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
     </style>
+    <script>
+    (function(){
+        var stored = localStorage.getItem('theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+    </script>
 </head>
 <body>
 <header>
@@ -298,6 +341,7 @@
             {% else %}
                 <a href="{% url 'login' %}">Login</a>
             {% endif %}
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode"></button>
         </nav>
     </div>
 </header>
@@ -309,5 +353,18 @@
     {% endif %}
     {% block content %}{% endblock %}
 </div>
+<script>
+(function(){
+    var btn = document.getElementById('theme-toggle');
+    function applyIcon(t){ btn.textContent = t === 'dark' ? '☀' : '☾'; }
+    applyIcon(document.documentElement.getAttribute('data-theme'));
+    btn.addEventListener('click', function(){
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        applyIcon(next);
+    });
+})();
+</script>
 </body>
 </html>
