@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: postgres:15
@@ -8,10 +7,14 @@ services:
       POSTGRES_DB: otter
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otter -d otter"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   web:
     build: .
-    command: gunicorn otter_finance_manager.wsgi:application --bind 0.0.0.0:8000 --workers 3
     ports:
       - "8000:8000"
     environment:
@@ -20,7 +23,8 @@ services:
       DATABASE_URL: "postgres://otter:otter@db:5432/otter"
       DJANGO_ALLOWED_HOSTS: "*"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   db-data:

@@ -1,8 +1,7 @@
-# ── builder ───────────────────────────────────────────────────────────────
+# ── builder ────────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
-# Bring in uv (pin the tag for reproducible builds, e.g. uv:0.5.x)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -22,7 +21,7 @@ RUN uv sync --frozen --no-dev
 # Bake static files into the image so the runtime stage needs no write access
 RUN .venv/bin/python manage.py collectstatic --noinput
 
-# ── runtime ───────────────────────────────────────────────────────────────
+# ── runtime ────────────────────────────────────────────────────────────────
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -30,20 +29,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     PATH="/app/.venv/bin:$PATH"
 
-# Non-root user
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system app \
+ && adduser --system --ingroup app app \
+ && install -d -m 755 -o app -g app /app
 
 WORKDIR /app
 
-# Copy the virtualenv and application source from the builder.
-# --chown sets ownership of the copied files but not the /app directory
-# itself (created by WORKDIR as root), so fix that explicitly.
 COPY --from=builder --chown=app:app /app /app
-RUN chown app:app /app
-
-# entrypoint must be executable; do this as root before switching user
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
 USER app
 

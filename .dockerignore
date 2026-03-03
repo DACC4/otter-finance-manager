@@ -26,3 +26,10 @@ node_modules/
 # Docker files (not needed inside the image)
 Dockerfile*
 docker-compose*
+
+# Docs & editor
+*.md
+!README.md
+.claude/
+plans/
+.env*
