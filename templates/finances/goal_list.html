@@ -9,12 +9,25 @@
 
 <div class="table-toolbar">
     <input id="goal-search" class="table-search-input" type="search" placeholder="Filter goals…">
+    <div id="bulk-bar" class="bulk-bar" style="display:none;">
+        <span class="bulk-count"></span>
+        <div class="bulk-tag-pills"></div>
+        <div class="bulk-actions">
+            <button type="button" class="btn btn-sm secondary bulk-add-btn">Add tags</button>
+            <button type="button" class="btn btn-sm secondary bulk-remove-btn">Remove tags</button>
+            <button type="button" class="btn btn-sm secondary bulk-set-btn">Set tags</button>
+        </div>
+        <button type="button" class="btn btn-sm secondary bulk-clear-btn">Clear selection</button>
+    </div>
 </div>
 
 <div class="card" style="padding:0;overflow:hidden;">
     <table id="goal-table">
         <thead>
             <tr>
+                <th style="width:36px;padding:9px 8px;">
+                    <input type="checkbox" id="bulk-select-all" style="cursor:pointer;">
+                </th>
                 <th>Name</th>
                 <th>Target</th>
                 <th>Target date</th>
@@ -25,7 +38,11 @@
         </thead>
         <tbody>
             {% for goal in object_list %}
-            <tr class="clickable-row" onclick="if(event.target.tagName!=='A')window.location='{% url 'finances:goal_edit' goal.pk %}';">
+            <tr class="clickable-row" data-id="{{ goal.pk }}"
+                onclick="if(event.target.tagName!=='A'&&event.target.type!=='checkbox')window.location='{% url 'finances:goal_edit' goal.pk %}';">
+                <td class="bulk-check-cell" style="width:36px;padding:10px 8px;">
+                    <input type="checkbox" style="cursor:pointer;">
+                </td>
                 <td><strong>{{ goal.name }}</strong></td>
                 <td class="mono">{% amount goal.target_amount %}</td>
                 <td class="muted" data-val="{{ goal.target_date|date:'Y-m-d' }}">{{ goal.target_date|date:site_settings.date_format }}</td>
@@ -46,7 +63,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" style="padding:28px;text-align:center;font-style:italic;" class="muted">
+                <td colspan="7" style="padding:28px;text-align:center;font-style:italic;" class="muted">
                     No savings goals yet. <a href="{% url 'finances:goal_add' %}" style="color:var(--primary);">Add your first one.</a>
                 </td>
             </tr>
@@ -54,6 +71,19 @@
         </tbody>
     </table>
 </div>
+{{ user_tags|json_script:"bulk-tags-data" }}
 {% endblock %}
 
-{% block extra_js %}<script>initTableFilter('goal-table','goal-search');</script>{% endblock %}
+{% block extra_js %}
+<script>
+    initTableFilter('goal-table', 'goal-search');
+    initBulkTags({
+        tableId:      'goal-table',
+        selectAllId:  'bulk-select-all',
+        bulkBarId:    'bulk-bar',
+        searchInputId:'goal-search',
+        endpointUrl:  '{% url "finances:goal_bulk_tags" %}',
+        tagsDataId:   'bulk-tags-data'
+    });
+</script>
+{% endblock %}

@@ -1,9 +1,11 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -15,7 +17,7 @@ from django.views.generic import (
 from django.utils import timezone
 
 from .forms import ExpenseForm, IncomeForm, SavingBucketForm, SavingsGoalForm, TagForm
-from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal, Tag
+from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal, Tag, UserExpenseTag
 from .services import calculate_debts, calculate_financial_snapshot
 
 
@@ -248,6 +250,11 @@ class IncomeListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return Income.objects.filter(owner=self.request.user)
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        return ctx
+
 
 class IncomeCreateView(OwnerCreateMixin, CreateView):
     model = Income
@@ -284,6 +291,7 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["debts"] = calculate_debts(self.request.user)
+        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
         return ctx
 
 
@@ -331,6 +339,11 @@ class SavingBucketListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return SavingBucket.objects.filter(owner=self.request.user)
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        return ctx
+
 
 class SavingBucketCreateView(OwnerCreateMixin, CreateView):
     model = SavingBucket
@@ -361,6 +374,11 @@ class SavingsGoalListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return SavingsGoal.objects.filter(owner=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        return ctx
 
 
 class SavingsGoalCreateView(OwnerCreateMixin, CreateView):
@@ -414,3 +432,85 @@ class TagDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     model = Tag
     template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:tag_list")
+
+
+class BulkTagsMixin(LoginRequiredMixin, View):
+    http_method_names = ['post']
+    model = None
+
+    def handle_no_permission(self):
+        return JsonResponse({'ok': False, 'error': 'Authentication required.'}, status=403)
+
+    def get_items_queryset(self, user, item_ids):
+        return self.model.objects.filter(owner=user, pk__in=item_ids)
+
+    def apply_tags(self, items, tags):
+        for item in items:
+            item.tags.add(*tags)
+
+    def remove_tags(self, items, tags):
+        for item in items:
+            item.tags.remove(*tags)
+
+    def set_tags(self, items, tags):
+        for item in items:
+            item.tags.set(tags)
+
+    def post(self, request):
+        try:
+            body = json.loads(request.body)
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid JSON.'}, status=400)
+        action = body.get('action')
+        item_ids = body.get('item_ids', [])
+        tag_ids = body.get('tag_ids', [])
+        if action not in ('add', 'remove', 'set'):
+            return JsonResponse({'ok': False, 'error': 'Invalid action.'}, status=400)
+        items = list(self.get_items_queryset(request.user, item_ids))
+        tags = list(Tag.objects.filter(owner=request.user, pk__in=tag_ids))
+        if action == 'add':
+            self.apply_tags(items, tags)
+        elif action == 'remove':
+            self.remove_tags(items, tags)
+        elif action == 'set':
+            self.set_tags(items, tags)
+        return JsonResponse({'ok': True, 'updated': len(items)})
+
+
+class IncomeBulkTagsView(BulkTagsMixin):
+    model = Income
+
+
+class SavingBucketBulkTagsView(BulkTagsMixin):
+    model = SavingBucket
+
+
+class SavingsGoalBulkTagsView(BulkTagsMixin):
+    model = SavingsGoal
+
+
+class ExpenseBulkTagsView(BulkTagsMixin):
+    model = Expense
+
+    def get_items_queryset(self, user, item_ids):
+        return Expense.objects.filter(
+            Q(owner=user) | Q(shared_with=user), pk__in=item_ids
+        ).distinct()
+
+    def apply_tags(self, items, tags):
+        user = self.request.user
+        for item in items:
+            for tag in tags:
+                UserExpenseTag.objects.get_or_create(user=user, expense=item, tag=tag)
+
+    def remove_tags(self, items, tags):
+        user = self.request.user
+        UserExpenseTag.objects.filter(user=user, expense__in=items, tag__in=tags).delete()
+
+    def set_tags(self, items, tags):
+        user = self.request.user
+        UserExpenseTag.objects.filter(user=user, expense__in=items).delete()
+        UserExpenseTag.objects.bulk_create(
+            [UserExpenseTag(user=user, expense=item, tag=tag) for item in items for tag in tags],
+            ignore_conflicts=True,
+        )

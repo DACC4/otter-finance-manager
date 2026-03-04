@@ -337,6 +337,37 @@
         th.sortable:hover { color: var(--ink-2); }
         th.sort-asc::after  { content: ' ▲'; font-size: 9px; }
         th.sort-desc::after { content: ' ▼'; font-size: 9px; }
+
+        /* ── Bulk action bar ── */
+        .bulk-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 6px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            flex: 1;
+        }
+        .bulk-tag-pills { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+        .bulk-tag-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: inherit;
+            transition: opacity 0.12s;
+            opacity: 0.7;
+        }
+        .bulk-tag-pill.active { opacity: 1; box-shadow: 0 0 0 2px currentColor; }
+        .bulk-actions { display: flex; gap: 4px; }
+        .bulk-count { font-size: 12px; white-space: nowrap; color: var(--ink-2); }
+        tr.bulk-selected td { background: var(--accent-lt) !important; }
     </style>
     <script>
     (function(){
@@ -457,6 +488,124 @@ function initTableFilter(tableId, inputId) {
                 row.style.display = text.includes(q) ? '' : 'none';
             });
         }, 120);
+    });
+}
+
+function getCsrfToken() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+}
+
+function initBulkTags(config) {
+    var table      = document.getElementById(config.tableId);
+    var selectAll  = document.getElementById(config.selectAllId);
+    var bar        = document.getElementById(config.bulkBarId);
+    var searchInput = config.searchInputId ? document.getElementById(config.searchInputId) : null;
+    var tagsData   = JSON.parse(document.getElementById(config.tagsDataId).textContent);
+    if (!table || !bar || !selectAll) return;
+
+    var tbody = table.querySelector('tbody');
+    var pillContainer = bar.querySelector('.bulk-tag-pills');
+    var selectedTagIds = new Set();
+
+    tagsData.forEach(function(tag) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bulk-tag-pill';
+        btn.dataset.id = tag.id;
+        btn.textContent = tag.name;
+        btn.style.background = tag.color + '22';
+        btn.style.color = tag.color;
+        btn.style.borderColor = tag.color + '66';
+        btn.addEventListener('click', function() {
+            if (selectedTagIds.has(tag.id)) {
+                selectedTagIds.delete(tag.id);
+                btn.classList.remove('active');
+            } else {
+                selectedTagIds.add(tag.id);
+                btn.classList.add('active');
+            }
+        });
+        pillContainer.appendChild(btn);
+    });
+
+    function getVisibleBoxes() {
+        return Array.from(tbody.querySelectorAll('input[type="checkbox"]')).filter(function(cb) {
+            return cb.closest('tr').style.display !== 'none';
+        });
+    }
+
+    function getCheckedRows() {
+        return Array.from(tbody.querySelectorAll('input[type="checkbox"]:checked')).filter(function(cb) {
+            return cb.closest('tr').style.display !== 'none';
+        });
+    }
+
+    function updateBar() {
+        var checked = getCheckedRows();
+        var n = checked.length;
+        var visibleBoxes = getVisibleBoxes();
+        bar.querySelector('.bulk-count').textContent =
+            n + ' item' + (n === 1 ? '' : 's') + ' selected';
+        if (n > 0) {
+            bar.style.display = 'flex';
+            if (searchInput) searchInput.style.display = 'none';
+        } else {
+            bar.style.display = 'none';
+            if (searchInput) searchInput.style.display = '';
+        }
+        selectAll.indeterminate = n > 0 && n < visibleBoxes.length;
+        selectAll.checked = n > 0 && n === visibleBoxes.length;
+    }
+
+    tbody.addEventListener('click', function(e) {
+        if (e.target.closest('td.bulk-check-cell')) e.stopPropagation();
+    });
+    tbody.addEventListener('change', function(e) {
+        if (e.target.type === 'checkbox') {
+            var row = e.target.closest('tr');
+            if (row) row.classList.toggle('bulk-selected', e.target.checked);
+            updateBar();
+        }
+    });
+
+    selectAll.addEventListener('change', function() {
+        getVisibleBoxes().forEach(function(cb) {
+            cb.checked = selectAll.checked;
+            cb.closest('tr').classList.toggle('bulk-selected', selectAll.checked);
+        });
+        updateBar();
+    });
+
+    function doAction(action) {
+        var itemIds = getCheckedRows().map(function(cb) {
+            return parseInt(cb.closest('tr').dataset.id, 10);
+        });
+        if (itemIds.length === 0) return;
+        fetch(config.endpointUrl, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+            body: JSON.stringify({action: action, item_ids: itemIds, tag_ids: Array.from(selectedTagIds)})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) { window.location.reload(); }
+            else { alert('Error: ' + (data.error || 'Unknown error')); }
+        })
+        .catch(function() { alert('Network error. Please try again.'); });
+    }
+
+    bar.querySelector('.bulk-add-btn').addEventListener('click', function() { doAction('add'); });
+    bar.querySelector('.bulk-remove-btn').addEventListener('click', function() { doAction('remove'); });
+    bar.querySelector('.bulk-set-btn').addEventListener('click', function() { doAction('set'); });
+    bar.querySelector('.bulk-clear-btn').addEventListener('click', function() {
+        tbody.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+            cb.checked = false;
+            cb.closest('tr').classList.remove('bulk-selected');
+        });
+        selectedTagIds.clear();
+        pillContainer.querySelectorAll('.bulk-tag-pill').forEach(function(p) { p.classList.remove('active'); });
+        updateBar();
     });
 }
 </script>

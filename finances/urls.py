@@ -54,6 +54,11 @@ urlpatterns = [
         views.SavingsGoalDeleteView.as_view(),
         name="goal_delete",
     ),
+    # Bulk tag actions
+    path('incomes/bulk-tags/', views.IncomeBulkTagsView.as_view(), name='income_bulk_tags'),
+    path('expenses/bulk-tags/', views.ExpenseBulkTagsView.as_view(), name='expense_bulk_tags'),
+    path('buckets/bulk-tags/', views.SavingBucketBulkTagsView.as_view(), name='bucket_bulk_tags'),
+    path('goals/bulk-tags/', views.SavingsGoalBulkTagsView.as_view(), name='goal_bulk_tags'),
     # Tag
     path("tags/", views.TagListView.as_view(), name="tag_list"),
     path("tags/add/", views.TagCreateView.as_view(), name="tag_add"),
