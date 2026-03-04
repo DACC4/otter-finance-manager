@@ -342,6 +342,23 @@ class SavingBucketListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        # Per-bucket 13th-month reduction: how much of each bucket's monthly
+        # contribution is already covered by a 13th-month salary lump sum.
+        reductions = {}
+        for income in Income.objects.filter(
+            owner=self.request.user,
+            thirteenth_month_bucket__isnull=False,
+        ):
+            pk = income.thirteenth_month_bucket_id
+            reduction = (income.thirteenth_month_amount / Decimal('12')).quantize(Decimal('0.01'))
+            reductions[pk] = reductions.get(pk, Decimal('0')) + reduction
+        ctx['bucket_reductions'] = reductions
+        bucket_by_pk = {b.pk: b for b in ctx['buckets']}
+        ctx['bucket_effective'] = {
+            pk: max(bucket_by_pk[pk].monthly_contribution - reduction, Decimal('0'))
+            for pk, reduction in reductions.items()
+            if pk in bucket_by_pk
+        }
         return ctx
 
 

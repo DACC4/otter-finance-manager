@@ -43,7 +43,17 @@
                     <input type="checkbox" style="cursor:pointer;">
                 </td>
                 <td><strong>{{ bucket.name }}</strong></td>
-                <td class="mono">{% amount bucket.monthly_contribution %}</td>
+                <td class="mono">
+                    {% amount bucket.monthly_contribution %}
+                    {% with reduction=bucket_reductions|get_item:bucket.pk effective=bucket_effective|get_item:bucket.pk %}
+                    {% if reduction %}
+                    <div style="font-size:11px;color:var(--ink-3);margin-top:2px;font-family:inherit;">
+                        <span style="color:var(--income);">{% amount reduction %}/mo from 13th</span>
+                        &rarr; {% amount effective %} effective
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </td>
                 <td class="muted">{{ bucket.description|default:""|truncatewords:12 }}</td>
                 <td>
                     {% for tag in bucket.tags.all %}

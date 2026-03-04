@@ -17,6 +17,12 @@ def annual_share_for(expense, user):
 
 
 @register.filter
+def get_item(dictionary, key):
+    """Look up a dict value by key in templates: {{ mydict|get_item:somevar }}"""
+    return dictionary.get(key)
+
+
+@register.filter
 def tags_for(expense, user):
     """Return this user's personal tags on an expense."""
     from ..models import Tag
