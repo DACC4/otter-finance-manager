@@ -7,8 +7,12 @@
     <a class="btn" href="{% url 'finances:expense_add' %}">+ Add expense</a>
 </div>
 
+<div class="table-toolbar">
+    <input id="expense-search" class="table-search-input" type="search" placeholder="Filter expenses…">
+</div>
+
 <div class="card" style="padding:0;overflow:hidden;">
-    <table>
+    <table id="expense-table">
         <thead>
             <tr>
                 <th>Name</th>
@@ -87,3 +91,5 @@
 </div>
 {% endif %}
 {% endblock %}
+
+{% block extra_js %}<script>initTableFilter('expense-table','expense-search');</script>{% endblock %}

@@ -7,8 +7,12 @@
     <a class="btn" href="{% url 'finances:bucket_add' %}">+ Add bucket</a>
 </div>
 
+<div class="table-toolbar">
+    <input id="bucket-search" class="table-search-input" type="search" placeholder="Filter buckets…">
+</div>
+
 <div class="card" style="padding:0;overflow:hidden;">
-    <table>
+    <table id="bucket-table">
         <thead>
             <tr>
                 <th>Name</th>
@@ -45,3 +49,5 @@
     </table>
 </div>
 {% endblock %}
+
+{% block extra_js %}<script>initTableFilter('bucket-table','bucket-search');</script>{% endblock %}

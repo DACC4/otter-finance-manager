@@ -7,8 +7,12 @@
     <a class="btn" href="{% url 'finances:goal_add' %}">+ Add goal</a>
 </div>
 
+<div class="table-toolbar">
+    <input id="goal-search" class="table-search-input" type="search" placeholder="Filter goals…">
+</div>
+
 <div class="card" style="padding:0;overflow:hidden;">
-    <table>
+    <table id="goal-table">
         <thead>
             <tr>
                 <th>Name</th>
@@ -24,7 +28,7 @@
             <tr class="clickable-row" onclick="if(event.target.tagName!=='A')window.location='{% url 'finances:goal_edit' goal.pk %}';">
                 <td><strong>{{ goal.name }}</strong></td>
                 <td class="mono">{% amount goal.target_amount %}</td>
-                <td class="muted">{{ goal.target_date|date:site_settings.date_format }}</td>
+                <td class="muted" data-val="{{ goal.target_date|date:'Y-m-d' }}">{{ goal.target_date|date:site_settings.date_format }}</td>
                 <td>
                     <span class="pill" style="background:var(--goal-lt);color:var(--goal);font-family:'JetBrains Mono',monospace;">
                         {% amount goal.required_monthly_saving %}/mo
@@ -51,3 +55,5 @@
     </table>
 </div>
 {% endblock %}
+
+{% block extra_js %}<script>initTableFilter('goal-table','goal-search');</script>{% endblock %}
