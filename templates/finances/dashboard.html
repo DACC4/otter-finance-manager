@@ -296,7 +296,7 @@
         <h3 style="margin:0;">Annual expenses due this month</h3>
         <span class="pill">{{ annual_due_expenses|length }} due</span>
     </div>
-    <table>
+    <div class="table-scroll"><table>
         <thead>
             <tr>
                 <th>Name</th>
@@ -317,7 +317,7 @@
             <tr><td colspan="4" class="muted" style="font-style:italic;">No annual expenses due this month.</td></tr>
             {% endfor %}
         </tbody>
-    </table>
+    </table></div>
 </div>
 
 <!-- Buckets | Goals charts -->
@@ -380,7 +380,7 @@
         <h2>13th month salary</h2>
         <span class="sec-total">{% amount snapshot.thirteenth_month_total %} total</span>
     </div>
-    <table>
+    <div class="table-scroll"><table>
         <thead>
             <tr>
                 <th>Income</th>
@@ -405,7 +405,7 @@
             </tr>
             {% endfor %}
         </tbody>
-    </table>
+    </table></div>
 </div>
 {% endif %}
 

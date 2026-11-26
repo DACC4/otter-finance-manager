@@ -111,11 +111,17 @@
             letter-spacing: 0.01em;
         }
         nav a:hover, nav .nav-link-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
-        /* Logout must POST (Django 5+); render the form's button like a nav link. */
+        /* Logout must POST (Django 5+): render the form's button like a nav link.
+           The selector must out-rank the generic `form button[type="submit"]`. */
+        nav .logout-form { display: flex; margin: 0; }
+        nav .logout-form .nav-link-btn {
+            background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+            padding: 0 13px; font-family: inherit; font-size: 13px; font-weight: 500;
+            color: rgba(255,255,255,0.58); cursor: pointer;
+        }
+        nav .logout-form .nav-link-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
         .flash { margin-bottom: 16px; padding: 12px 18px; background: var(--accent-lt); border-color: #FDE68A; color: #92400E; }
         .flash-success { background: var(--income-lt); border-color: var(--income); color: var(--income); }
-        nav .logout-form { display: flex; margin: 0; }
-        nav .nav-link-btn { background: none; border: 0; border-bottom: 2px solid transparent; font-family: inherit; cursor: pointer; }
         nav a.active { color: #fff; border-bottom-color: var(--accent); }
         .nav-spacer { flex: 1; }
         .nav-sep { width: 1px; background: rgba(255,255,255,0.1); margin: 12px 4px; }
@@ -133,6 +139,25 @@
             line-height: 1;
         }
         .theme-toggle:hover { color: #fff; }
+
+        /* List tables scroll sideways inside their card instead of being clipped. */
+        .table-card { padding: 0; overflow-x: auto; }
+        .table-scroll { overflow-x: auto; }
+
+        /* ── Phones: logo on its own row, nav as a full-width scrollable row ── */
+        @media (max-width: 760px) {
+            .header-inner { flex-wrap: wrap; padding: 0 12px; }
+            .logo { border-right: 0; padding: 12px 0 4px; }
+            nav {
+                flex-basis: 100%;
+                overflow-x: auto;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+            nav::-webkit-scrollbar { display: none; }
+            nav a, nav .logout-form .nav-link-btn { padding: 10px 11px; white-space: nowrap; }
+            .container { padding: 18px 12px 56px; }
+        }
 
         /* ── Layout ── */
         .container {
