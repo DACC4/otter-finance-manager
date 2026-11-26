@@ -611,3 +611,15 @@ class ThirteenthMonthDashboardTests(LoggedInTestCase):
         self.assertEqual(buckets["Travel"]["value"], Decimal("100.00"))
         self.assertEqual(buckets["Travel"]["covered"], Decimal("200.00"))
         self.assertEqual(ctx["combined_total"], snap["monthly_expenses"])
+
+
+class LogoutTests(LoggedInTestCase):
+    def test_nav_logs_out_with_a_post_form(self):
+        page = self.client.get(reverse("finances:dashboard"))
+        self.assertContains(
+            page, f'<form method="post" action="{reverse("logout")}"', html=False
+        )
+        response = self.client.post(reverse("logout"))
+        self.assertRedirects(response, reverse("login"))
+        after = self.client.get(reverse("finances:dashboard"))
+        self.assertEqual(after.status_code, 302)

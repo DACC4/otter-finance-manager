@@ -98,7 +98,7 @@
             align-items: stretch;
             flex: 1;
         }
-        nav a {
+        nav a, nav .nav-link-btn {
             color: rgba(255,255,255,0.58);
             text-decoration: none;
             font-size: 13px;
@@ -110,7 +110,10 @@
             transition: color 0.15s, background 0.15s;
             letter-spacing: 0.01em;
         }
-        nav a:hover { color: #fff; background: rgba(255,255,255,0.07); }
+        nav a:hover, nav .nav-link-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
+        /* Logout must POST (Django 5+); render the form's button like a nav link. */
+        nav .logout-form { display: flex; margin: 0; }
+        nav .nav-link-btn { background: none; border: 0; border-bottom: 2px solid transparent; font-family: inherit; cursor: pointer; }
         nav a.active { color: #fff; border-bottom-color: var(--accent); }
         .nav-spacer { flex: 1; }
         .nav-sep { width: 1px; background: rgba(255,255,255,0.1); margin: 12px 4px; }
@@ -395,7 +398,7 @@
                     <a href="{% url 'admin:index' %}">Admin</a>
                 {% endif %}
                 <div class="nav-sep"></div>
-                <a href="{% url 'logout' %}">Logout</a>
+                <form method="post" action="{% url 'logout' %}" class="logout-form">{% csrf_token %}<button type="submit" class="nav-link-btn">Logout</button></form>
             {% else %}
                 <a href="{% url 'login' %}">Login</a>
             {% endif %}
