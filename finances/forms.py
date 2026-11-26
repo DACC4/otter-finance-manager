@@ -2,7 +2,6 @@ import calendar
 
 from django import forms
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 
 from .models import Expense, Income, SavingBucket, SavingsGoal, Tag, UserExpenseTag
 
@@ -25,9 +24,9 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
             self.fields[
                 "thirteenth_month_bucket"
             ].queryset = SavingBucket.objects.filter(owner=user)
-            self.fields["thirteenth_month_expense"].queryset = Expense.objects.filter(
-                Q(owner=user) | Q(shared_with=user)
-            ).distinct()
+            self.fields[
+                "thirteenth_month_expense"
+            ].queryset = Expense.objects.visible_to(user)
 
     def clean(self):
         cleaned = super().clean()

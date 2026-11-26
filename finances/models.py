@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -88,6 +89,12 @@ class Income(models.Model):
         return self.monthly_amount
 
 
+class ExpenseQuerySet(models.QuerySet):
+    def visible_to(self, user):
+        """Expenses the user owns or shares in."""
+        return self.filter(Q(owner=user) | Q(shared_with=user)).distinct()
+
+
 class Expense(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -119,6 +126,8 @@ class Expense(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    objects = ExpenseQuerySet.as_manager()
+
     class Meta:
         ordering = ["name"]
 
@@ -131,6 +140,9 @@ class Expense(models.Model):
             return self.amount
         return (self.amount / Decimal(12)).quantize(Decimal("0.01"))
 
+    def has_participant(self, user) -> bool:
+        return user == self.owner or self.shared_with.filter(pk=user.pk).exists()
+
     @property
     def participant_count(self) -> int:
         # owner counts as a participant even if shared_with is empty
@@ -140,20 +152,21 @@ class Expense(models.Model):
         yield self.owner
         yield from self.shared_with.all()
 
+    def _split(self, amount: Decimal) -> Decimal:
+        # participant_count is always >= 1: the owner is a participant.
+        return (amount / Decimal(self.participant_count)).quantize(Decimal("0.01"))
+
     def share_for(self, user) -> Decimal:
-        if user == self.owner or self.shared_with.filter(pk=user.pk).exists():
-            count = max(self.participant_count, 1)
-            return (self.monthly_amount / Decimal(count)).quantize(Decimal("0.01"))
-        return Decimal(0)
+        """User's monthly share; 0 if they do not take part."""
+        if not self.has_participant(user):
+            return Decimal(0)
+        return self._split(self.monthly_amount)
 
     def annual_share_for(self, user) -> Decimal:
         """User's share of the full annual amount (used when the bill is due)."""
-        if self.frequency != Frequency.ANNUAL:
+        if self.frequency != Frequency.ANNUAL or not self.has_participant(user):
             return Decimal(0)
-        if user != self.owner and not self.shared_with.filter(pk=user.pk).exists():
-            return Decimal(0)
-        count = max(self.participant_count, 1)
-        return (self.amount / Decimal(count)).quantize(Decimal("0.01"))
+        return self._split(self.amount)
 
     def monthly_annual_saving(self, user) -> Decimal:
         """Even monthly saving needed to cover this annual bill."""

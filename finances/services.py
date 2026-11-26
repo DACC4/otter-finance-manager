@@ -1,7 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
 
-from django.db.models import Q
 from django.utils import timezone
 
 from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal
@@ -11,7 +10,7 @@ def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
     as_of = as_of or timezone.now().date()
 
     incomes = Income.objects.filter(owner=user)
-    expenses = Expense.objects.filter(Q(owner=user) | Q(shared_with=user)).distinct()
+    expenses = Expense.objects.visible_to(user)
     saving_buckets = SavingBucket.objects.filter(owner=user)
     savings_goals = SavingsGoal.objects.filter(owner=user)
 
@@ -93,9 +92,8 @@ def calculate_debts(user) -> dict[str, list[tuple]]:
     """
     # All expenses with a payer where this user is involved
     payer_expenses = (
-        Expense.objects.filter(payer__isnull=False)
-        .filter(Q(owner=user) | Q(shared_with=user))
-        .distinct()
+        Expense.objects.visible_to(user)
+        .filter(payer__isnull=False)
         .select_related("payer", "owner")
         .prefetch_related("shared_with")
     )

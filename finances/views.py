@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -41,9 +40,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
 
         incomes_qs = Income.objects.filter(owner=user)
-        expenses_qs = Expense.objects.filter(
-            Q(owner=user) | Q(shared_with=user)
-        ).distinct()
+        expenses_qs = Expense.objects.visible_to(user)
         saving_buckets_qs = SavingBucket.objects.filter(owner=user)
         savings_goals_qs = SavingsGoal.objects.filter(owner=user)
 
@@ -302,9 +299,7 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     context_object_name = "expenses"
 
     def get_queryset(self):
-        return Expense.objects.filter(
-            Q(owner=self.request.user) | Q(shared_with=self.request.user)
-        ).distinct()
+        return Expense.objects.visible_to(self.request.user)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -332,11 +327,7 @@ class ExpenseUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
 
     def test_func(self):
         # Allow the owner or any participant (shared_with) to edit the expense
-        obj = self.get_object()
-        return (
-            obj.owner == self.request.user
-            or obj.shared_with.filter(pk=self.request.user.pk).exists()
-        )
+        return self.get_object().has_participant(self.request.user)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -532,9 +523,7 @@ class ExpenseBulkTagsView(BulkTagsMixin):
     model = Expense
 
     def get_items_queryset(self, user, item_ids):
-        return Expense.objects.filter(
-            Q(owner=user) | Q(shared_with=user), pk__in=item_ids
-        ).distinct()
+        return Expense.objects.visible_to(user).filter(pk__in=item_ids)
 
     def apply_tags(self, items, tags):
         user = self.request.user
