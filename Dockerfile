@@ -46,5 +46,10 @@ USER app
 
 EXPOSE 8000
 
+# /healthz is answered before host validation, so this works with any
+# DJANGO_ALLOWED_HOSTS. start-period covers migrations at startup.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"]
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gunicorn", "otter_finance_manager.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

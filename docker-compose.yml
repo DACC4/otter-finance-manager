@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:15
+    restart: unless-stopped
     environment:
       POSTGRES_USER: otter
       POSTGRES_PASSWORD: otter
@@ -15,6 +16,7 @@ services:
 
   web:
     build: .
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:

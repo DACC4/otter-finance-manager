@@ -76,6 +76,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First: must answer before host validation (see finances/middleware.py).
+    "finances.middleware.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
