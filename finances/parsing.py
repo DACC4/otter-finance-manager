@@ -43,3 +43,15 @@ def parse_owned_tag_id(raw: str | None, owned_ids: Iterable[int]) -> int | None:
         return None
     tag_id = int(raw)
     return tag_id if tag_id in set(owned_ids) else None
+
+
+def client_ip_behind_proxy(request) -> str | None:
+    """Client address when exactly one trusted reverse proxy sits in front.
+
+    The proxy appends the address it saw to X-Forwarded-For, so the right-most
+    entry is the real client; anything to its left came from the client and
+    may be forged. Without the header, use the socket address.
+    """
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    entries = [part.strip() for part in forwarded.split(",") if part.strip()]
+    return entries[-1] if entries else request.META.get("REMOTE_ADDR")

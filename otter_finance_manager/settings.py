@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -73,6 +74,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "finances",
+    "axes",
 ]
 
 MIDDLEWARE = [
@@ -86,6 +88,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last: turns a locked-out login attempt into the lockout response.
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "otter_finance_manager.urls"
@@ -169,6 +173,23 @@ STORAGES = {
 }
 
 LOGIN_URL = "login"
+# Login throttling (django-axes): after AXES_FAILURE_LIMIT wrong passwords
+# for one username from one IP, that pair is locked for AXES_COOLOFF_TIME.
+# Locking by username+IP (not IP alone) keeps one attacker behind a shared
+# proxy IP from locking everyone out. Unlock early: `manage.py axes_reset`.
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
+if env_bool("DJANGO_BEHIND_PROXY"):
+    # Right-most X-Forwarded-For entry: the address the proxy itself appended.
+    AXES_CLIENT_IP_CALLABLE = "finances.parsing.client_ip_behind_proxy"
+
 LOGIN_REDIRECT_URL = "finances:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 

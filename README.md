@@ -70,7 +70,7 @@ Open http://localhost:8000.
 | `DATABASE_URL` | SQLite | PostgreSQL URL, e.g. `postgres://user:pass@host:5432/db` (PostgreSQL 15+) |
 | `DJANGO_TIME_ZONE` | `Europe/Zurich` | IANA time zone used to decide "this month" (due bills, savings cycles) |
 | `DJANGO_HTTPS` | `False` | `true` makes session/CSRF cookies HTTPS-only. Enable when the site is served over HTTPS |
-| `DJANGO_BEHIND_PROXY` | `False` | `true` trusts `X-Forwarded-Proto` from your reverse proxy. Only if the proxy always sets it |
+| `DJANGO_BEHIND_PROXY` | `False` | `true` trusts `X-Forwarded-Proto` from your reverse proxy, and takes the client IP for login throttling from the right-most `X-Forwarded-For` entry. Only for exactly one proxy that always sets both |
 | `DJANGO_HSTS_SECONDS` | `0` | Send HSTS for this many seconds (start small, e.g. `3600`; browsers cache it) |
 
 ### Using the published image
@@ -117,6 +117,14 @@ volumes:
 ```
 
 ---
+
+## Login protection
+
+After 5 wrong passwords for the same username from the same IP, sign-in for that pair is paused for 15 minutes ([django-axes](https://django-axes.readthedocs.io/)). Other users, and the same user from another IP, are not affected. To unlock early:
+
+```bash
+docker compose exec web python manage.py axes_reset_username <username>
+```
 
 ## Dependency updates
 
