@@ -14,6 +14,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "coverage>=7",
     "pytest>=9.2,<10",
     "pytest-django>=4.14,<5",
     "ruff>=0.17.6,<0.18",
@@ -32,3 +33,7 @@ extend-exclude = ["*/migrations/*"]
 [tool.ruff.lint]
 # RUF012: Django's declarative class attributes (Meta, fields, widgets) are idiomatic.
 extend-ignore = ["RUF012"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "otter_finance_manager.settings"
+python_files = ["test_*.py"]

@@ -7,3 +7,9 @@ __pycache__/
 .idea/
 .vscode/
 staticfiles/
+.metrics/
+.coverage
+coverage.lcov
+lcov.info
+htmlcov/
+target/

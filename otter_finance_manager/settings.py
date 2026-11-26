@@ -33,11 +33,12 @@ def env_list(name: str, default: str = "") -> list[str]:
 DEBUG = env_bool("DJANGO_DEBUG")
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Outside DEBUG (and the test runner) a real key is mandatory: a fallback
+# Outside DEBUG (and test runs) a real key is mandatory: a fallback
 # committed to the repository would let anyone forge sessions.
+RUNNING_TESTS = sys.argv[1:2] == ["test"] or "pytest" in sys.modules
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
-    if not DEBUG and sys.argv[1:2] != ["test"]:
+    if not DEBUG and not RUNNING_TESTS:
         raise ImproperlyConfigured(
             "Set DJANGO_SECRET_KEY (or DJANGO_DEBUG=1 for local development)."
         )
