@@ -72,8 +72,11 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         self._user = user
         self.fields["target_month"].help_text = "Only relevant for annual expenses."
         self.fields["payer"].empty_label = "No single payer (everyone pays directly)"
-        if user:
-            self.fields["shared_with"].queryset = User.objects.exclude(pk=user.pk)
+        if self._owner:
+            # The owner is always a participant; never offer them as a sharer.
+            self.fields["shared_with"].queryset = User.objects.exclude(
+                pk=self._owner.pk
+            )
         if self.instance.pk:
             participant_pks = [self.instance.owner_id] + list(
                 self.instance.shared_with.values_list("pk", flat=True)
@@ -87,11 +90,16 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         else:
             self.fields["payer"].queryset = User.objects.all()
 
+    @property
+    def _owner(self):
+        """The expense owner: the existing owner, or the creating user."""
+        return self.instance.owner if self.instance.pk else self._user
+
     def clean(self):
         cleaned = super().clean()
         payer = cleaned.get("payer")
-        owner = self.instance.owner if self.instance.pk else self._user
-        if payer and payer != owner and payer not in cleaned.get("shared_with", []):
+        shared_with = cleaned.get("shared_with", [])
+        if payer and payer != self._owner and payer not in shared_with:
             self.add_error("payer", "The payer must be one of the participants.")
         return cleaned
 

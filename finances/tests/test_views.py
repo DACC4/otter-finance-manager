@@ -494,3 +494,28 @@ class BoundaryTests(LoggedInTestCase):
             set(Expense.objects.values_list("payer", flat=True)),
             {self.alice.pk, self.bob.pk},
         )
+
+
+class ParticipantEditTests(LoggedInTestCase):
+    def test_participant_edit_keeps_them_shared_and_never_offers_owner(self):
+        carol = f.user("carol")
+        exp = f.expense(self.bob, "300", shared_with=[self.alice, carol])
+        form = self.client.get(reverse("finances:expense_edit", args=[exp.pk])).context[
+            "form"
+        ]
+        choices = set(form.fields["shared_with"].queryset)
+        self.assertEqual(choices, {self.alice, carol})
+
+        # Submit what the browser would send back unchanged.
+        self.client.post(
+            reverse("finances:expense_edit", args=[exp.pk]),
+            {
+                "name": "Rent",
+                "amount": "300",
+                "frequency": "monthly",
+                "shared_with": [self.alice.pk, carol.pk],
+            },
+        )
+        exp.refresh_from_db()
+        self.assertEqual(set(exp.shared_with.all()), {self.alice, carol})
+        self.assertEqual(exp.share_for(self.alice), Decimal("100.00"))
