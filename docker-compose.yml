@@ -18,10 +18,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DJANGO_SECRET_KEY: "replace-me"
+      # Required. Put it in a .env file next to this compose file (gitignored):
+      #   DJANGO_SECRET_KEY=<output of: python -c "import secrets; print(secrets.token_urlsafe(50))">
+      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}"
       DJANGO_DEBUG: "False"
       DATABASE_URL: "postgres://otter:otter@db:5432/otter"
       DJANGO_ALLOWED_HOSTS: "*"
+      # Behind an HTTPS reverse proxy, also set:
+      # DJANGO_CSRF_TRUSTED_ORIGINS: "https://finance.example.com"
+      # DJANGO_HTTPS: "true"
+      # DJANGO_BEHIND_PROXY: "true"
     depends_on:
       db:
         condition: service_healthy

@@ -11,38 +11,54 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+def env_bool(name: str, default: bool = False) -> bool:
+    return os.environ.get(name, str(default)).lower() in ("1", "true", "yes")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-1_%py)%m+)ukuonbt=8camk&*yh@&b!+0hzpldl6$h*net*o$@",
-)
+
+def env_list(name: str, default: str = "") -> list[str]:
+    return [item for item in os.environ.get(name, default).split(",") if item]
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+DEBUG = env_bool("DJANGO_DEBUG")
 
-# Hosts (comma-separated env var)
-ALLOWED_HOSTS = [
-    h
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if h
-]
+# SECURITY WARNING: keep the secret key used in production secret!
+# Outside DEBUG (and the test runner) a real key is mandatory: a fallback
+# committed to the repository would let anyone forge sessions.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if not DEBUG and sys.argv[1:2] != ["test"]:
+        raise ImproperlyConfigured(
+            "Set DJANGO_SECRET_KEY (or DJANGO_DEBUG=1 for local development)."
+        )
+    SECRET_KEY = "django-insecure-local-development-only"
 
-# Required in Django 4.0+ when served over HTTPS or behind a reverse proxy.
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+# Required when served over HTTPS or behind a reverse proxy.
 # Set to e.g. "https://finance.example.com" (comma-separated for multiple).
-CSRF_TRUSTED_ORIGINS = [
-    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
-]
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+
+# HTTPS hardening, opt-in so plain-HTTP setups (e.g. LAN on :8000) keep working.
+# DJANGO_HTTPS=true          -> session and CSRF cookies are sent over HTTPS only.
+# DJANGO_BEHIND_PROXY=true   -> trust X-Forwarded-Proto from the reverse proxy.
+#                               Only enable if the proxy always sets/overwrites it.
+# DJANGO_HSTS_SECONDS=31536000 -> send HSTS (start small; hard to undo in browsers).
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = env_bool("DJANGO_HTTPS")
+if env_bool("DJANGO_BEHIND_PROXY"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
 
 
 # Application definition

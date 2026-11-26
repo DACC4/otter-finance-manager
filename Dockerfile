@@ -19,7 +19,8 @@ COPY . .
 RUN uv sync --frozen --no-dev
 
 # Bake static files into the image so the runtime stage needs no write access
-RUN .venv/bin/python manage.py collectstatic --noinput
+# collectstatic only imports settings; this throwaway key is not kept in the image env.
+RUN DJANGO_SECRET_KEY=collectstatic-build-only .venv/bin/python manage.py collectstatic --noinput
 
 # ── runtime ────────────────────────────────────────────────────────────────
 FROM python:3.13-slim
