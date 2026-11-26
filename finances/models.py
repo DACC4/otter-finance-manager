@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 
@@ -91,8 +91,25 @@ class Income(models.Model):
 
 class ExpenseQuerySet(models.QuerySet):
     def visible_to(self, user):
-        """Expenses the user owns or shares in."""
-        return self.filter(Q(owner=user) | Q(shared_with=user)).distinct()
+        """Expenses the user owns or shares in, with what pages need preloaded.
+
+        Shares, payers and the user's own tags are read per expense; loading
+        them here keeps page cost constant however many expenses there are.
+        """
+        return (
+            self.filter(Q(owner=user) | Q(shared_with=user))
+            .distinct()
+            .select_related("owner", "payer")
+            .prefetch_related(
+                "shared_with",
+                Prefetch(
+                    "user_tags",
+                    queryset=UserExpenseTag.objects.filter(user=user).select_related(
+                        "tag"
+                    ),
+                ),
+            )
+        )
 
 
 class Expense(models.Model):
@@ -141,7 +158,19 @@ class Expense(models.Model):
         return (self.amount / Decimal(12)).quantize(Decimal("0.01"))
 
     def has_participant(self, user) -> bool:
-        return user == self.owner or self.shared_with.filter(pk=user.pk).exists()
+        # Membership in .all() reuses prefetched shared_with (no query per call).
+        return user.pk == self.owner_id or user in self.shared_with.all()
+
+    def tags_of(self, user) -> list:
+        """This user's personal tags on the expense, by name.
+
+        Works on prefetched links (visible_to) and on plain instances alike.
+        """
+        links = self.user_tags.all()
+        return sorted(
+            (link.tag for link in links if link.user_id == user.pk),
+            key=lambda tag: tag.name,
+        )
 
     @property
     def participant_count(self) -> int:

@@ -109,12 +109,7 @@ def calculate_debts(user) -> dict[str, list[tuple]]:
         }
     """
     # All expenses with a payer where this user is involved
-    payer_expenses = (
-        Expense.objects.visible_to(user)
-        .filter(payer__isnull=False)
-        .select_related("payer", "owner")
-        .prefetch_related("shared_with")
-    )
+    payer_expenses = Expense.objects.visible_to(user).filter(payer__isnull=False)
 
     owed_to_me: dict = defaultdict(Decimal)
     i_owe: dict = defaultdict(Decimal)

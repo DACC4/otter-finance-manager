@@ -25,9 +25,7 @@ def get_item(dictionary, key):
 @register.filter
 def tags_for(expense, user):
     """Return this user's personal tags on an expense."""
-    from ..models import Tag
-
-    return Tag.objects.filter(expense_links__expense=expense, expense_links__user=user)
+    return expense.tags_of(user)
 
 
 @register.simple_tag(takes_context=True)

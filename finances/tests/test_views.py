@@ -537,3 +537,38 @@ class LocalDateTests(LoggedInTestCase):
             ctx = self.client.get(reverse("finances:dashboard")).context
         self.assertEqual([e.name for e in ctx["annual_due_expenses"]], ["Tax"])
         self.assertEqual(ctx["snapshot"]["annual_withdrawals"], Decimal("1200.00"))
+
+
+class QueryCountTests(LoggedInTestCase):
+    """Page cost must not grow with the number of expenses (no N+1)."""
+
+    def add_expenses(self, count, start):
+        home = Tag.objects.get_or_create(owner=self.alice, name="Home")[0]
+        for i in range(start, start + count):
+            exp = f.expense(
+                self.alice,
+                "100",
+                name=f"e{i}",
+                shared_with=[self.bob],
+                payer=self.alice,
+                frequency="annual",
+                target_month=date.today().month,
+            )
+            UserExpenseTag.objects.create(user=self.alice, expense=exp, tag=home)
+        f.expense(self.bob, "50", name=f"bob{start}", shared_with=[self.alice])
+
+    def queries_for(self, url):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get(url).status_code, 200)
+        return len(ctx)
+
+    def test_dashboard_and_expense_list_queries_are_constant(self):
+        self.add_expenses(2, 0)
+        self.client.get("/")  # warm-up: first request creates SiteSettings
+        before = {u: self.queries_for(u) for u in ("/", "/expenses/")}
+        self.add_expenses(10, 100)
+        after = {u: self.queries_for(u) for u in ("/", "/expenses/")}
+        self.assertEqual(after, before)
