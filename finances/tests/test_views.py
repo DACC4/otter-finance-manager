@@ -325,6 +325,14 @@ class CrudTests(LoggedInTestCase):
                 name,
             )
 
+    def test_goal_list_shows_notes(self):
+        g = f.goal(self.alice, "1000", "0")
+        g.notes = "For the new studio"
+        g.save()
+        self.assertContains(
+            self.client.get(reverse("finances:goal_list")), "For the new studio"
+        )
+
     def test_bucket_list_shows_thirteenth_month_reduction(self):
         travel = f.bucket(self.alice, "800")
         f.income(self.alice, "1200", months_per_year=13, thirteenth_month_bucket=travel)

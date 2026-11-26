@@ -43,7 +43,7 @@
                 <td class="bulk-check-cell" style="width:36px;padding:10px 8px;">
                     <input type="checkbox" style="cursor:pointer;">
                 </td>
-                <td><strong>{{ goal.name }}</strong></td>
+                <td><strong>{{ goal.name }}</strong>{% if goal.notes %}<div class="muted" style="font-size:12px;margin-top:2px;" title="{{ goal.notes }}">{{ goal.notes|truncatewords:12 }}</div>{% endif %}</td>
                 <td class="mono">{% amount goal.target_amount %}</td>
                 <td class="muted" data-val="{{ goal.target_date|date:'Y-m-d' }}">{{ goal.target_date|date:site_settings.date_format }}</td>
                 <td>

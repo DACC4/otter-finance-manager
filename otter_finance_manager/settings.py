@@ -175,11 +175,6 @@ LOGOUT_REDIRECT_URL = "login"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Defaults for currency/locale (can be overridden via SiteSettings in admin)
-DEFAULT_CURRENCY = os.environ.get("DEFAULT_CURRENCY", "USD")
-DEFAULT_LOCALE = os.environ.get("DEFAULT_LOCALE", "en_US")
-DEFAULT_DATE_FORMAT = os.environ.get("DEFAULT_DATE_FORMAT", "%Y-%m-%d")
-
 # Basic logging suitable for production containers
 LOGGING = {
     "version": 1,
