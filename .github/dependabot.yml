@@ -1,0 +1,65 @@
+# Dependabot opens pull requests when dependencies have new releases.
+# Docs: https://docs.github.com/code-security/reference/supply-chain-security/dependabot-options-reference
+#
+# - Minor/patch updates are grouped into one PR per ecosystem each week.
+#   Major updates get their own PR, since they can need code changes.
+# - Security updates bypass the schedule and the default 3-day cooldown
+#   (enable "Dependabot security updates" in the repository settings).
+# - PRs are checked by .github/workflows/tests.yml (tests, lint, pip-audit).
+version: 2
+updates:
+  # Python: pyproject.toml + uv.lock
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Keep pyproject ranges unless a release falls outside them (e.g. Django 6.2
+    # vs "<6.2"); in-range releases only update uv.lock.
+    versioning-strategy: "increase-if-necessary"
+    groups:
+      python-minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "build(deps)"
+    labels: ["dependencies", "python"]
+
+  # Dockerfile base images (python, uv)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker-images:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "build(docker)"
+    labels: ["dependencies", "docker"]
+
+  # docker-compose.yml (postgres)
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    ignore:
+      # A PostgreSQL major upgrade needs a dump/restore of the data volume.
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "build(compose)"
+    labels: ["dependencies", "docker"]
+
+  # GitHub Actions used in workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+    labels: ["dependencies", "github-actions"]

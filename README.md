@@ -117,6 +117,18 @@ volumes:
 
 ---
 
+## Dependency updates
+
+[Dependabot](https://docs.github.com/code-security/dependabot) (`.github/dependabot.yml`) checks every Monday and opens pull requests for:
+
+- **Python** (`pyproject.toml` + `uv.lock`): minor/patch updates grouped in one PR, major updates one PR each
+- **Docker images** in the `Dockerfile` (python, uv) and `docker-compose.yml` (postgres; major versions are ignored because they need a dump/restore)
+- **GitHub Actions** used by the workflows
+
+New releases are picked up after a 3-day cooldown; security fixes come immediately when *Dependabot security updates* is enabled in the repository settings. Every PR runs `.github/workflows/tests.yml` (lint, migrations check, tests, `pip-audit`).
+
+To bump everything by hand instead: `uv lock --upgrade && uv sync`, then run the tests.
+
 ## Development commands
 
 ```bash

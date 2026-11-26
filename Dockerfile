@@ -1,7 +1,10 @@
+# uv as a named stage: Dependabot only tracks images on FROM lines.
+FROM ghcr.io/astral-sh/uv:0.13.10 AS uv
+
 # ── builder ────────────────────────────────────────────────────────────────
 FROM python:3.13-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.13.10 /uv /usr/local/bin/uv
+COPY --from=uv /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
