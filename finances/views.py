@@ -23,15 +23,15 @@ from .models import (
 )
 from .parsing import InvalidPayload, parse_bulk_tags_payload, parse_owned_tag_id
 from .services import (
+    ThirteenthMonthCover,
     calculate_debts,
     calculate_financial_snapshot,
-    effective_bucket_contribution,
     expense_split_totals,
     goal_progress,
     max_value,
+    need_rows,
     sort_rows,
     tag_expense_rows,
-    thirteenth_month_bucket_reductions,
     total_value,
     value_rows,
 )
@@ -63,13 +63,20 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             self.request.GET.get("tag"), tags.values_list("id", flat=True)
         )
         incomes, expenses, buckets, goals = self._querysets(user, tag_id)
+        # Coverage comes from all incomes: a tag filter must not change it.
+        cover = ThirteenthMonthCover.from_incomes(Income.objects.filter(owner=user))
+
+        def share(expense):
+            return cover.expense_share(expense, user)
 
         charts = {
             "incomes": value_rows(incomes, lambda i: i.monthly_amount),
-            "expenses": value_rows(expenses, lambda e: e.share_for(user)),
-            "buckets": value_rows(buckets, lambda b: b.monthly_contribution),
+            "expenses": need_rows(expenses, lambda e: e.share_for(user), share),
+            "buckets": need_rows(
+                buckets, lambda b: b.monthly_contribution, cover.bucket_need
+            ),
             "goals": value_rows(goals, lambda g: g.required_monthly_saving(as_of)),
-            "tag_expense": tag_expense_rows(tags, expenses, user),
+            "tag_expense": tag_expense_rows(tags, expenses, user, share),
         }
         for name, rows in charts.items():
             rows = sort_rows(rows, sort_option)
@@ -78,7 +85,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context[f"{name}_total"] = total_value(rows)
 
         snapshot = calculate_financial_snapshot(user, as_of=as_of)
-        context.update(expense_split_totals(expenses, user))
+        context.update(expense_split_totals(expenses, share))
         context.update(
             {
                 "snapshot": snapshot,
@@ -220,14 +227,14 @@ class SavingBucketListView(OwnedListMixin, UserTagsContextMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        reductions = thirteenth_month_bucket_reductions(
+        cover = ThirteenthMonthCover.from_incomes(
             Income.objects.filter(owner=self.request.user)
         )
-        ctx["bucket_reductions"] = reductions
+        ctx["bucket_reductions"] = cover.buckets
         ctx["bucket_effective"] = {
-            bucket.pk: effective_bucket_contribution(bucket, reductions)
+            bucket.pk: cover.bucket_need(bucket)
             for bucket in ctx["buckets"]
-            if bucket.pk in reductions
+            if bucket.pk in cover.buckets
         }
         return ctx
 

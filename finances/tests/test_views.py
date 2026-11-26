@@ -572,3 +572,34 @@ class QueryCountTests(LoggedInTestCase):
         self.add_expenses(10, 100)
         after = {u: self.queries_for(u) for u in ("/", "/expenses/")}
         self.assertEqual(after, before)
+
+
+class ThirteenthMonthDashboardTests(LoggedInTestCase):
+    def test_charts_show_effective_amounts_matching_the_cards(self):
+        travel = f.bucket(self.alice, "300", name="Travel")
+        f.bucket(self.alice, "120", name="Car")
+        rent = f.expense(self.alice, "500", name="Rent")
+        f.expense(self.alice, "100", name="Phone")
+        f.income(self.alice, "2400", months_per_year=13, thirteenth_month_bucket=travel)
+        f.income(
+            self.alice,
+            "1200",
+            name="Bonus job",
+            months_per_year=13,
+            thirteenth_month_expense=rent,
+        )
+        response = self.client.get(reverse("finances:dashboard"))
+        ctx = response.context
+        snap = ctx["snapshot"]
+        self.assertContains(response, "13th month covers $100.00/mo")
+        self.assertContains(response, "13th month covers $200.00/mo")
+        self.assertEqual(ctx["expenses_total"], snap["monthly_expenses"])
+        self.assertEqual(ctx["buckets_total"], snap["monthly_saving_buckets"])
+        rows = {r["name"]: r for r in ctx["expenses_data"]}
+        self.assertEqual(rows["Rent"]["value"], Decimal("400.00"))
+        self.assertEqual(rows["Rent"]["covered"], Decimal("100.00"))
+        self.assertNotIn("covered", rows["Phone"])
+        buckets = {r["name"]: r for r in ctx["buckets_data"]}
+        self.assertEqual(buckets["Travel"]["value"], Decimal("100.00"))
+        self.assertEqual(buckets["Travel"]["covered"], Decimal("200.00"))
+        self.assertEqual(ctx["combined_total"], snap["monthly_expenses"])

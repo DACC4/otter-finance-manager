@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from django.utils import timezone
@@ -9,30 +10,57 @@ from .models import (
     Income,
     SavingBucket,
     SavingsGoal,
-    UserExpenseTag,
 )
 
 CENT = Decimal("0.01")
 
 
-def thirteenth_month_bucket_reductions(incomes) -> dict[int, Decimal]:
-    """Monthly amount of each bucket already covered by a 13th-month lump sum.
-
-    One annual payment allocated to a bucket covers thirteenth_month_amount / 12
-    of that bucket's monthly contribution.
-    """
-    reductions: dict[int, Decimal] = defaultdict(Decimal)
+def _monthly_cover(incomes, target_field: str) -> dict[int, Decimal]:
+    """Sum thirteenth_month_amount / 12 per allocation target id."""
+    cover: dict[int, Decimal] = defaultdict(Decimal)
     for income in incomes:
-        if income.thirteenth_month_bucket_id is not None:
-            monthly = (income.thirteenth_month_amount / Decimal(12)).quantize(CENT)
-            reductions[income.thirteenth_month_bucket_id] += monthly
-    return dict(reductions)
+        target_id = getattr(income, target_field)
+        if target_id is not None:
+            cover[target_id] += (income.thirteenth_month_amount / Decimal(12)).quantize(
+                CENT
+            )
+    return dict(cover)
 
 
-def effective_bucket_contribution(bucket, reductions: dict[int, Decimal]) -> Decimal:
-    """What the user still has to put in each month; a reduction never goes below 0."""
-    reduction = reductions.get(bucket.pk, Decimal(0))
-    return max(bucket.monthly_contribution - reduction, Decimal(0))
+@dataclass(frozen=True)
+class ThirteenthMonthCover:
+    """Monthly amounts a user's 13th-month lump sums cover, per bucket/expense.
+
+    One annual payment covers thirteenth_month_amount / 12 per month of the
+    bucket or expense it is allocated to. A cover only reduces its own target,
+    never below 0, and only for the income owner (other participants of a
+    shared expense keep their full share).
+    """
+
+    buckets: dict[int, Decimal] = field(default_factory=dict)
+    expenses: dict[int, Decimal] = field(default_factory=dict)
+
+    @classmethod
+    def from_incomes(cls, incomes) -> "ThirteenthMonthCover":
+        return cls(
+            buckets=_monthly_cover(incomes, "thirteenth_month_bucket_id"),
+            expenses=_monthly_cover(incomes, "thirteenth_month_expense_id"),
+        )
+
+    def bucket_need(self, bucket) -> Decimal:
+        """What the user still puts into the bucket each month."""
+        cover = self.buckets.get(bucket.pk, Decimal(0))
+        return max(bucket.monthly_contribution - cover, Decimal(0))
+
+    def expense_share(self, expense, user) -> Decimal:
+        """User's monthly share still paid from regular income."""
+        cover = self.expenses.get(expense.pk, Decimal(0))
+        return max(expense.share_for(user) - cover, Decimal(0))
+
+    def annual_saving(self, expense, user) -> Decimal:
+        """Monthly amount still set aside for an annual bill."""
+        cover = self.expenses.get(expense.pk, Decimal(0))
+        return max(expense.monthly_annual_saving(user) - cover, Decimal(0))
 
 
 def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
@@ -44,13 +72,12 @@ def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
     savings_goals = SavingsGoal.objects.filter(owner=user)
 
     monthly_income = sum((income.monthly_amount for income in incomes), Decimal(0))
+    cover = ThirteenthMonthCover.from_incomes(incomes)
     monthly_expenses = sum(
-        (expense.share_for(user) for expense in expenses), Decimal(0)
+        (cover.expense_share(expense, user) for expense in expenses), Decimal(0)
     )
-    reductions = thirteenth_month_bucket_reductions(incomes)
     monthly_saving_buckets = sum(
-        (effective_bucket_contribution(b, reductions) for b in saving_buckets),
-        Decimal(0),
+        (cover.bucket_need(b) for b in saving_buckets), Decimal(0)
     )
     monthly_goal_need = sum(
         (goal.required_monthly_saving(as_of) for goal in savings_goals), Decimal(0)
@@ -72,7 +99,7 @@ def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
         Decimal(0),
     )
     annual_monthly_saving = sum(
-        (expense.monthly_annual_saving(user) for expense in annual_expenses),
+        (cover.annual_saving(expense, user) for expense in annual_expenses),
         Decimal(0),
     )
 
@@ -161,6 +188,16 @@ def value_rows(items, value) -> list[dict]:
     return [{"name": item.name, "value": value(item)} for item in items]
 
 
+def need_rows(items, full, need) -> list[dict]:
+    """Rows showing what is still needed; "covered" when a 13th month pays part."""
+    rows = value_rows(items, need)
+    for item, row in zip(items, rows, strict=True):
+        covered = full(item) - row["value"]
+        if covered > 0:
+            row["covered"] = covered
+    return rows
+
+
 def sort_rows(rows: list[dict], sort_option: str) -> list[dict]:
     """Sort by value for a known option; any other option keeps the given order."""
     if sort_option not in SORT_OPTIONS:
@@ -177,8 +214,8 @@ def total_value(rows: list[dict]) -> Decimal:
     return sum((row["value"] for row in rows), Decimal(0))
 
 
-def expense_split_totals(expenses, user) -> dict[str, Decimal]:
-    """User's share split by frequency (monthly/annual) and shared vs. not shared."""
+def expense_split_totals(expenses, share) -> dict[str, Decimal]:
+    """User's share (share(expense)) by frequency and shared vs. not shared."""
     totals = {
         f"{frequency}_{kind}_total": Decimal(0)
         for frequency in ("monthly", "annual")
@@ -187,7 +224,7 @@ def expense_split_totals(expenses, user) -> dict[str, Decimal]:
     for expense in expenses:
         frequency = "annual" if expense.frequency == Frequency.ANNUAL else "monthly"
         kind = "shared" if expense.participant_count > 1 else "non_shared"
-        totals[f"{frequency}_{kind}_total"] += expense.share_for(user)
+        totals[f"{frequency}_{kind}_total"] += share(expense)
     totals["combined_total"] = sum(totals.values(), Decimal(0))
     return totals
 
@@ -208,12 +245,12 @@ def goal_progress(goal, as_of) -> dict:
     }
 
 
-def tag_expense_rows(tags, expenses, user) -> list[dict]:
+def tag_expense_rows(tags, expenses, user, share) -> list[dict]:
     """Per-tag sum of the user's share of the expenses they tagged with it."""
-    shares = {expense.pk: expense.share_for(user) for expense in expenses}
     totals: dict[int, Decimal] = defaultdict(Decimal)
-    for link in UserExpenseTag.objects.filter(user=user, expense_id__in=shares):
-        totals[link.tag_id] += shares[link.expense_id]
+    for expense in expenses:
+        for tag in expense.tags_of(user):
+            totals[tag.id] += share(expense)
     return [
         {"id": tag.id, "name": tag.name, "value": totals[tag.id], "color": tag.color}
         for tag in tags

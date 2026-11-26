@@ -111,3 +111,57 @@ class DebtTests(TestCase):
     def test_no_payer_means_no_debt(self):
         f.expense(self.alice, "100", shared_with=[self.bob])
         self.assertEqual(calculate_debts(self.bob), {"owed_to_me": [], "i_owe": []})
+
+
+class ThirteenthMonthExpenseTests(TestCase):
+    """A 13th month allocated to an expense covers part of the owner's share."""
+
+    def setUp(self):
+        self.alice = f.user("alice")
+        self.bob = f.user("bob")
+        self.as_of = date(2025, 1, 1)
+
+    def thirteenth_to(self, expense, monthly_income="2400"):
+        # 13th month = one month of income: 2400 -> covers 200 per month.
+        return f.income(
+            self.alice,
+            monthly_income,
+            months_per_year=13,
+            thirteenth_month_expense=expense,
+        )
+
+    def test_reduces_owners_monthly_expense(self):
+        rent = f.expense(self.alice, "500")
+        self.thirteenth_to(rent)
+        snap = calculate_financial_snapshot(self.alice, as_of=self.as_of)
+        self.assertEqual(snap["monthly_expenses"], Decimal("300.00"))
+        self.assertEqual(snap["fun_money"], Decimal("2100.00"))
+
+    def test_only_the_income_owners_share_drops(self):
+        rent = f.expense(self.alice, "500", shared_with=[self.bob], payer=self.bob)
+        self.thirteenth_to(rent)
+        alice = calculate_financial_snapshot(self.alice, as_of=self.as_of)
+        bob = calculate_financial_snapshot(self.bob, as_of=self.as_of)
+        self.assertEqual(alice["monthly_expenses"], Decimal("50.00"))
+        self.assertEqual(bob["monthly_expenses"], Decimal("250.00"))
+        # What Alice owes the payer is unchanged: her 13th month doesn't pay Bob.
+        self.assertEqual(
+            calculate_debts(self.alice)["i_owe"],
+            [(self.bob, Decimal("250.00"), Decimal("3000.00"))],
+        )
+
+    def test_reduction_is_floored_and_does_not_spill(self):
+        phone = f.expense(self.alice, "100", name="Phone")
+        f.expense(self.alice, "400", name="Rent")
+        self.thirteenth_to(phone)
+        snap = calculate_financial_snapshot(self.alice, as_of=self.as_of)
+        self.assertEqual(snap["monthly_expenses"], Decimal("400.00"))
+
+    def test_annual_expense_saving_drops_but_the_bill_does_not(self):
+        tax = f.annual_expense(self.alice, "2400", 1, name="Tax")
+        self.thirteenth_to(tax, monthly_income="1200")  # covers 100/month
+        snap = calculate_financial_snapshot(self.alice, as_of=self.as_of)
+        self.assertEqual(snap["monthly_expenses"], Decimal("100.00"))
+        self.assertEqual(snap["annual_monthly_saving"], Decimal("100.00"))
+        self.assertEqual(snap["annual_withdrawals"], Decimal("2400.00"))
+        self.assertEqual(snap["annual_savings_balance"], Decimal("2400.00"))

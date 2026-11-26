@@ -91,6 +91,7 @@
         font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums;
         font-size: 12px; color: var(--ink-2); min-width: 70px; text-align: right;
     }
+    .bar-note { margin: -6px 0 8px 140px; font-size: 11px; color: var(--ink-3); }
     .income-bar  .bar-fill { background: var(--income); }
     .expense-bar .bar-fill { background: var(--expense); }
     .bucket-bar  .bar-fill { background: var(--bucket); }
@@ -223,6 +224,7 @@
                 <div class="bar-track"><div class="bar-fill" data-w="{% widthratio row.value expenses_max 100 %}"></div></div>
                 <div class="bar-val">{% amount row.value %}</div>
             </div>
+            {% if row.covered %}<div class="bar-note">13th month covers {% amount row.covered %}/mo</div>{% endif %}
         {% empty %}
             <p class="muted" style="font-size:13px;font-style:italic;">No expenses yet.</p>
         {% endfor %}
@@ -331,6 +333,7 @@
                 <div class="bar-track"><div class="bar-fill" data-w="{% widthratio row.value buckets_max 100 %}"></div></div>
                 <div class="bar-val">{% amount row.value %}</div>
             </div>
+            {% if row.covered %}<div class="bar-note">13th month covers {% amount row.covered %}/mo</div>{% endif %}
         {% empty %}
             <p class="muted" style="font-size:13px;font-style:italic;">No saving buckets yet.</p>
         {% endfor %}
