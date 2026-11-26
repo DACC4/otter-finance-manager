@@ -184,13 +184,13 @@ class Expense(models.Model):
         Number of months since the last due month (1-12). On the due month this
         returns 12, meaning you should have the full amount saved.
         """
-        as_of = as_of or timezone.now().date()
+        as_of = as_of or timezone.localdate()
         target = self._target_month_value()
         delta = (as_of.month - target) % 12
         return 12 if delta == 0 else delta
 
     def is_due_in_month(self, as_of=None) -> bool:
-        as_of = as_of or timezone.now().date()
+        as_of = as_of or timezone.localdate()
         return as_of.month == self._target_month_value()
 
     def expected_annual_balance(self, user, as_of=None) -> Decimal:
@@ -268,7 +268,7 @@ class SavingsGoal(models.Model):
         return f"{self.name} ({self.owner})"
 
     def months_remaining(self, as_of=None) -> int:
-        as_of = as_of or timezone.now().date()
+        as_of = as_of or timezone.localdate()
         if self.target_date <= as_of:
             return 1
         months = (self.target_date.year - as_of.year) * 12 + (
@@ -277,7 +277,7 @@ class SavingsGoal(models.Model):
         return max(months, 1)
 
     def required_monthly_saving(self, as_of=None) -> Decimal:
-        as_of = as_of or timezone.now().date()
+        as_of = as_of or timezone.localdate()
         remaining = self.target_amount - self.current_balance
         if remaining <= 0:
             return Decimal(0)

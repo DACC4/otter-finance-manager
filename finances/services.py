@@ -36,7 +36,7 @@ def effective_bucket_contribution(bucket, reductions: dict[int, Decimal]) -> Dec
 
 
 def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
-    as_of = as_of or timezone.now().date()
+    as_of = as_of or timezone.localdate()
 
     incomes = Income.objects.filter(owner=user)
     expenses = Expense.objects.visible_to(user)

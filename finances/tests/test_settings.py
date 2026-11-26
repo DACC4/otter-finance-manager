@@ -11,7 +11,7 @@ PROBE = (
     "import json, django; from django.conf import settings; django.setup(); "
     "print(json.dumps({k: getattr(settings, k) for k in "
     "['SESSION_COOKIE_SECURE', 'CSRF_COOKIE_SECURE', 'SECURE_PROXY_SSL_HEADER', "
-    "'SECURE_HSTS_SECONDS', 'SECURE_HSTS_INCLUDE_SUBDOMAINS']}))"
+    "'SECURE_HSTS_SECONDS', 'SECURE_HSTS_INCLUDE_SUBDOMAINS', 'TIME_ZONE']}))"
 )
 
 
@@ -49,6 +49,7 @@ class ProductionSettingsTests(SimpleTestCase):
                 "SECURE_PROXY_SSL_HEADER": None,
                 "SECURE_HSTS_SECONDS": 0,
                 "SECURE_HSTS_INCLUDE_SUBDOMAINS": False,
+                "TIME_ZONE": "Europe/Zurich",
             },
         )
 
@@ -58,6 +59,7 @@ class ProductionSettingsTests(SimpleTestCase):
             DJANGO_HTTPS="true",
             DJANGO_BEHIND_PROXY="yes",
             DJANGO_HSTS_SECONDS="31536000",
+            DJANGO_TIME_ZONE="America/New_York",
         )
         self.assertEqual(
             json.loads(result.stdout),
@@ -67,5 +69,6 @@ class ProductionSettingsTests(SimpleTestCase):
                 "SECURE_PROXY_SSL_HEADER": ["HTTP_X_FORWARDED_PROTO", "https"],
                 "SECURE_HSTS_SECONDS": 31536000,
                 "SECURE_HSTS_INCLUDE_SUBDOMAINS": True,
+                "TIME_ZONE": "America/New_York",
             },
         )

@@ -1,8 +1,9 @@
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from finances.models import (
@@ -522,3 +523,17 @@ class ParticipantEditTests(LoggedInTestCase):
         exp.refresh_from_db()
         self.assertEqual(set(exp.shared_with.all()), {self.alice, carol})
         self.assertEqual(exp.share_for(self.alice), Decimal("100.00"))
+
+
+class LocalDateTests(LoggedInTestCase):
+    """Month logic must use the configured local date, not the UTC date."""
+
+    @override_settings(TIME_ZONE="Europe/Zurich")
+    def test_due_month_follows_local_time_zone(self):
+        f.annual_expense(self.alice, "1200", 3, name="Tax")
+        # 23:30 UTC on 28 Feb is already 00:30 on 1 March in Zurich.
+        late_feb_utc = datetime(2025, 2, 28, 23, 30, tzinfo=UTC)
+        with patch("django.utils.timezone.now", return_value=late_feb_utc):
+            ctx = self.client.get(reverse("finances:dashboard")).context
+        self.assertEqual([e.name for e in ctx["annual_due_expenses"]], ["Tax"])
+        self.assertEqual(ctx["snapshot"]["annual_withdrawals"], Decimal("1200.00"))

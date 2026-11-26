@@ -146,7 +146,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+# Local time decides "this month" (due bills, savings cycles). IANA name.
+TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "Europe/Zurich")
 
 USE_I18N = True
 

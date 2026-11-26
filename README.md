@@ -68,6 +68,7 @@ Open http://localhost:8000.
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hostnames |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | _(empty)_ | **Required when behind a reverse proxy or HTTPS.** Comma-separated origins including scheme, e.g. `https://finance.example.com` |
 | `DATABASE_URL` | SQLite | PostgreSQL URL, e.g. `postgres://user:pass@host:5432/db` (PostgreSQL 15+) |
+| `DJANGO_TIME_ZONE` | `Europe/Zurich` | IANA time zone used to decide "this month" (due bills, savings cycles) |
 | `DJANGO_HTTPS` | `False` | `true` makes session/CSRF cookies HTTPS-only. Enable when the site is served over HTTPS |
 | `DJANGO_BEHIND_PROXY` | `False` | `true` trusts `X-Forwarded-Proto` from your reverse proxy. Only if the proxy always sets it |
 | `DJANGO_HSTS_SECONDS` | `0` | Send HSTS for this many seconds (start small, e.g. `3600`; browsers cache it) |

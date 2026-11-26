@@ -56,7 +56,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        as_of = timezone.now().date()
+        as_of = timezone.localdate()
         sort_option = (self.request.GET.get("sort") or "price_desc").lower()
         tags = Tag.objects.filter(owner=user)
         tag_id = parse_owned_tag_id(
@@ -77,7 +77,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             context[f"{name}_max"] = max_value(rows)
             context[f"{name}_total"] = total_value(rows)
 
-        snapshot = calculate_financial_snapshot(user)
+        snapshot = calculate_financial_snapshot(user, as_of=as_of)
         context.update(expense_split_totals(expenses, user))
         context.update(
             {
