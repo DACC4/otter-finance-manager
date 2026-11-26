@@ -67,7 +67,6 @@ class Income(models.Model):
         help_text="Expense to allocate the 13th month payment to.",
     )
     tags = models.ManyToManyField(Tag, related_name="incomes", blank=True)
-    start_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

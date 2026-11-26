@@ -50,10 +50,8 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
             "thirteenth_month_bucket",
             "thirteenth_month_expense",
             "tags",
-            "start_date",
         ]
         widgets = {
-            "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "tags": forms.SelectMultiple(attrs={"size": 3}),
         }
 
