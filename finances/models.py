@@ -1,5 +1,5 @@
+from collections.abc import Iterable
 from decimal import Decimal
-from typing import Iterable
 
 from django.conf import settings
 from django.db import models
@@ -84,7 +84,7 @@ class Income(models.Model):
     @property
     def thirteenth_month_amount(self) -> Decimal:
         if self.months_per_year != 13:
-            return Decimal("0")
+            return Decimal(0)
         return self.monthly_amount
 
 
@@ -129,7 +129,7 @@ class Expense(models.Model):
     def monthly_amount(self) -> Decimal:
         if self.frequency == Frequency.MONTHLY:
             return self.amount
-        return (self.amount / Decimal("12")).quantize(Decimal("0.01"))
+        return (self.amount / Decimal(12)).quantize(Decimal("0.01"))
 
     @property
     def participant_count(self) -> int:
@@ -144,14 +144,14 @@ class Expense(models.Model):
         if user == self.owner or self.shared_with.filter(pk=user.pk).exists():
             count = max(self.participant_count, 1)
             return (self.monthly_amount / Decimal(count)).quantize(Decimal("0.01"))
-        return Decimal("0")
+        return Decimal(0)
 
     def annual_share_for(self, user) -> Decimal:
         """User's share of the full annual amount (used when the bill is due)."""
         if self.frequency != Frequency.ANNUAL:
-            return Decimal("0")
+            return Decimal(0)
         if user != self.owner and not self.shared_with.filter(pk=user.pk).exists():
-            return Decimal("0")
+            return Decimal(0)
         count = max(self.participant_count, 1)
         return (self.amount / Decimal(count)).quantize(Decimal("0.01"))
 
@@ -159,8 +159,8 @@ class Expense(models.Model):
         """Even monthly saving needed to cover this annual bill."""
         share = self.annual_share_for(user)
         if share == 0:
-            return Decimal("0")
-        return (share / Decimal("12")).quantize(Decimal("0.01"))
+            return Decimal(0)
+        return (share / Decimal(12)).quantize(Decimal("0.01"))
 
     def _target_month_value(self) -> int:
         """Treat unset target_month as December (12) for predictable cycles."""
@@ -186,7 +186,7 @@ class Expense(models.Model):
         assuming even saving across the year and reset after payment.
         """
         if self.frequency != Frequency.ANNUAL:
-            return Decimal("0")
+            return Decimal(0)
         monthly_share = self.share_for(user)
         months_saved = self.months_into_cycle(as_of=as_of)
         return (monthly_share * Decimal(months_saved)).quantize(Decimal("0.01"))
@@ -267,19 +267,23 @@ class SavingsGoal(models.Model):
         as_of = as_of or timezone.now().date()
         remaining = self.target_amount - self.current_balance
         if remaining <= 0:
-            return Decimal("0")
+            return Decimal(0)
         months = self.months_remaining(as_of=as_of)
         return (remaining / Decimal(months)).quantize(Decimal("0.01"))
 
 
 class SiteSettings(models.Model):
     currency_symbol = models.CharField(
-        max_length=8, default="$",
+        max_length=8,
+        default="$",
         help_text='Symbol shown next to amounts, e.g. "$", "€", "£", "Fr."',
     )
     currency_position = models.CharField(
         max_length=6,
-        choices=[("before", "Before amount  →  $100.00"), ("after", "After amount  →  100.00$")],
+        choices=[
+            ("before", "Before amount  →  $100.00"),
+            ("after", "After amount  →  100.00$"),
+        ],
         default="before",
     )
     date_format = models.CharField(
@@ -303,7 +307,7 @@ class SiteSettings(models.Model):
         return "Site settings"
 
     def save(self, *args, **kwargs):
-        self.pk = 1          # enforce singleton
+        self.pk = 1  # enforce singleton
         super().save(*args, **kwargs)
 
     @classmethod

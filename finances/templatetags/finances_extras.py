@@ -26,6 +26,7 @@ def get_item(dictionary, key):
 def tags_for(expense, user):
     """Return this user's personal tags on an expense."""
     from ..models import Tag
+
     return Tag.objects.filter(expense_links__expense=expense, expense_links__user=user)
 
 
@@ -34,6 +35,7 @@ def amount(context, value):
     cfg = context.get("site_settings")
     if cfg is None:
         from ..models import SiteSettings
+
         cfg = SiteSettings.get()
     symbol = cfg.currency_symbol
     position = cfg.currency_position

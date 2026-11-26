@@ -5,7 +5,14 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
-from finances.models import Expense, Income, SavingBucket, SavingsGoal, Tag, UserExpenseTag
+from finances.models import (
+    Expense,
+    Income,
+    SavingBucket,
+    SavingsGoal,
+    Tag,
+    UserExpenseTag,
+)
 
 from . import factories as f
 
@@ -19,13 +26,22 @@ class LoggedInTestCase(TestCase):
 
 class AuthTests(TestCase):
     def test_pages_require_login(self):
-        for name in ["dashboard", "income_list", "expense_list", "bucket_list", "goal_list", "tag_list"]:
+        for name in [
+            "dashboard",
+            "income_list",
+            "expense_list",
+            "bucket_list",
+            "goal_list",
+            "tag_list",
+        ]:
             response = self.client.get(reverse(f"finances:{name}"))
             self.assertEqual(response.status_code, 302, name)
             self.assertIn(reverse("login"), response["Location"])
 
     def test_bulk_tags_requires_login_with_json_403(self):
-        response = self.client.post(reverse("finances:income_bulk_tags"), "{}", content_type="application/json")
+        response = self.client.post(
+            reverse("finances:income_bulk_tags"), "{}", content_type="application/json"
+        )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["ok"], False)
 
@@ -39,8 +55,16 @@ class DashboardTests(LoggedInTestCase):
         f.annual_expense(self.alice, "1200", date.today().month, name="Insurance")
         UserExpenseTag.objects.create(user=self.alice, expense=rent, tag=home)
         f.bucket(self.alice, "300")
-        f.goal(self.alice, "1000", "250", target_date=date.today() + timedelta(days=400))
-        f.goal(self.alice, "0", "0", name="Zero", target_date=date.today() + timedelta(days=400))
+        f.goal(
+            self.alice, "1000", "250", target_date=date.today() + timedelta(days=400)
+        )
+        f.goal(
+            self.alice,
+            "0",
+            "0",
+            name="Zero",
+            target_date=date.today() + timedelta(days=400),
+        )
 
         response = self.client.get(reverse("finances:dashboard"))
         self.assertEqual(response.status_code, 200)
@@ -50,28 +74,45 @@ class DashboardTests(LoggedInTestCase):
         self.assertEqual(ctx["annual_non_shared_total"], Decimal("100.00"))
         self.assertEqual(ctx["monthly_total"], Decimal("800.00"))
         self.assertEqual(ctx["combined_total"], Decimal("900.00"))
-        self.assertEqual([r["name"] for r in ctx["expenses_data"]], ["Rent", "Phone", "Insurance"])
+        self.assertEqual(
+            [r["name"] for r in ctx["expenses_data"]], ["Rent", "Phone", "Insurance"]
+        )
         self.assertEqual(ctx["expenses_max"], Decimal("600.00"))
-        self.assertEqual(ctx["incomes_total"], Decimal("4000"))
-        self.assertEqual(ctx["buckets_total"], Decimal("300"))
+        self.assertEqual(ctx["incomes_total"], Decimal(4000))
+        self.assertEqual(ctx["buckets_total"], Decimal(300))
         self.assertEqual([e.name for e in ctx["annual_due_expenses"]], ["Insurance"])
         self.assertEqual(
             ctx["tag_expense_data"],
-            [{"id": home.id, "name": "Home", "value": Decimal("600.00"), "color": "#112233"}],
+            [
+                {
+                    "id": home.id,
+                    "name": "Home",
+                    "value": Decimal("600.00"),
+                    "color": "#112233",
+                }
+            ],
         )
         self.assertEqual(ctx["tag_expense_total"], Decimal("600.00"))
         percents = {g["name"]: g["percent"] for g in ctx["savings_goals"]}
-        self.assertEqual(percents, {"Laptop": Decimal("25.00"), "Zero": Decimal("0.00")})
+        self.assertEqual(
+            percents, {"Laptop": Decimal("25.00"), "Zero": Decimal("0.00")}
+        )
         self.assertFalse(ctx["fun_negative"])
 
     def test_dashboard_sort_ascending(self):
         f.expense(self.alice, "200", name="Phone")
         f.expense(self.alice, "50", name="Water")
         f.expense(self.alice, "100", name="Gas")
-        ctx = self.client.get(reverse("finances:dashboard"), {"sort": "price_asc"}).context
-        self.assertEqual([r["name"] for r in ctx["expenses_data"]], ["Water", "Gas", "Phone"])
+        ctx = self.client.get(
+            reverse("finances:dashboard"), {"sort": "price_asc"}
+        ).context
+        self.assertEqual(
+            [r["name"] for r in ctx["expenses_data"]], ["Water", "Gas", "Phone"]
+        )
         ctx = self.client.get(reverse("finances:dashboard"), {"sort": "none"}).context
-        self.assertEqual([r["name"] for r in ctx["expenses_data"]], ["Gas", "Phone", "Water"])
+        self.assertEqual(
+            [r["name"] for r in ctx["expenses_data"]], ["Gas", "Phone", "Water"]
+        )
 
     def test_dashboard_tag_filter(self):
         home = f.tag(self.alice, "Home")
@@ -89,7 +130,9 @@ class DashboardTests(LoggedInTestCase):
 
     def test_negative_fun_money_flag(self):
         f.expense(self.alice, "100")
-        self.assertTrue(self.client.get(reverse("finances:dashboard")).context["fun_negative"])
+        self.assertTrue(
+            self.client.get(reverse("finances:dashboard")).context["fun_negative"]
+        )
 
 
 class PermissionTests(LoggedInTestCase):
@@ -108,24 +151,47 @@ class PermissionTests(LoggedInTestCase):
         g = f.goal(self.bob, "1", "0")
         b = f.bucket(self.bob, "1")
         exp = f.expense(self.bob, "1")
-        for name, pk in [("income", inc.pk), ("tag", tag.pk), ("goal", g.pk), ("bucket", b.pk), ("expense", exp.pk)]:
+        for name, pk in [
+            ("income", inc.pk),
+            ("tag", tag.pk),
+            ("goal", g.pk),
+            ("bucket", b.pk),
+            ("expense", exp.pk),
+        ]:
             for action in ["edit", "delete"]:
-                response = self.client.get(reverse(f"finances:{name}_{action}", args=[pk]))
+                response = self.client.get(
+                    reverse(f"finances:{name}_{action}", args=[pk])
+                )
                 self.assertEqual(response.status_code, 403, f"{name}_{action}")
         self.client.post(reverse("finances:income_delete", args=[inc.pk]))
         self.assertTrue(Income.objects.filter(pk=inc.pk).exists())
 
     def test_participant_can_edit_but_not_delete_shared_expense(self):
         exp = f.expense(self.bob, "100", shared_with=[self.alice])
-        self.assertEqual(self.client.get(reverse("finances:expense_edit", args=[exp.pk])).status_code, 200)
-        self.assertEqual(self.client.get(reverse("finances:expense_delete", args=[exp.pk])).status_code, 403)
+        self.assertEqual(
+            self.client.get(
+                reverse("finances:expense_edit", args=[exp.pk])
+            ).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("finances:expense_delete", args=[exp.pk])
+            ).status_code,
+            403,
+        )
 
 
 class CrudTests(LoggedInTestCase):
     def test_create_income_assigns_owner(self):
         response = self.client.post(
             reverse("finances:income_add"),
-            {"name": "Job", "amount": "5000", "frequency": "monthly", "months_per_year": "12"},
+            {
+                "name": "Job",
+                "amount": "5000",
+                "frequency": "monthly",
+                "months_per_year": "12",
+            },
         )
         self.assertRedirects(response, reverse("finances:income_list"))
         self.assertEqual(Income.objects.get().owner, self.alice)
@@ -135,8 +201,14 @@ class CrudTests(LoggedInTestCase):
         exp = f.expense(self.alice, "100")
         response = self.client.post(
             reverse("finances:income_add"),
-            {"name": "Job", "amount": "5000", "frequency": "monthly", "months_per_year": "13",
-             "thirteenth_month_bucket": b.pk, "thirteenth_month_expense": exp.pk},
+            {
+                "name": "Job",
+                "amount": "5000",
+                "frequency": "monthly",
+                "months_per_year": "13",
+                "thirteenth_month_bucket": b.pk,
+                "thirteenth_month_expense": exp.pk,
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Income.objects.exists())
@@ -148,19 +220,30 @@ class CrudTests(LoggedInTestCase):
         f.bucket(self.bob, "1", name="Bob bucket")
         form = self.client.get(reverse("finances:income_add")).context["form"]
         self.assertEqual(list(form.fields["tags"].queryset), [mine])
-        self.assertEqual(list(form.fields["thirteenth_month_bucket"].queryset), [my_bucket])
+        self.assertEqual(
+            list(form.fields["thirteenth_month_bucket"].queryset), [my_bucket]
+        )
 
     def test_create_expense_with_personal_tags(self):
         home = f.tag(self.alice, "Home")
         response = self.client.post(
             reverse("finances:expense_add"),
-            {"name": "Rent", "amount": "1000", "frequency": "monthly", "shared_with": [self.bob.pk], "tags": [home.pk]},
+            {
+                "name": "Rent",
+                "amount": "1000",
+                "frequency": "monthly",
+                "shared_with": [self.bob.pk],
+                "tags": [home.pk],
+            },
         )
         self.assertRedirects(response, reverse("finances:expense_list"))
         exp = Expense.objects.get()
         self.assertEqual(exp.owner, self.alice)
         self.assertEqual(list(exp.shared_with.all()), [self.bob])
-        self.assertEqual(list(UserExpenseTag.objects.values_list("user", "tag")), [(self.alice.pk, home.pk)])
+        self.assertEqual(
+            list(UserExpenseTag.objects.values_list("user", "tag")),
+            [(self.alice.pk, home.pk)],
+        )
 
     def test_expense_form_shared_with_excludes_self(self):
         form = self.client.get(reverse("finances:expense_add")).context["form"]
@@ -169,7 +252,9 @@ class CrudTests(LoggedInTestCase):
     def test_edit_expense_payer_limited_to_participants(self):
         carol = f.user("carol")
         exp = f.expense(self.alice, "100", shared_with=[self.bob])
-        form = self.client.get(reverse("finances:expense_edit", args=[exp.pk])).context["form"]
+        form = self.client.get(reverse("finances:expense_edit", args=[exp.pk])).context[
+            "form"
+        ]
         self.assertEqual(set(form.fields["payer"].queryset), {self.alice, self.bob})
         self.assertNotIn(carol, form.fields["payer"].queryset)
 
@@ -177,22 +262,44 @@ class CrudTests(LoggedInTestCase):
         home, work = f.tag(self.alice, "Home"), f.tag(self.alice, "Work")
         exp = f.expense(self.alice, "100")
         UserExpenseTag.objects.create(user=self.alice, expense=exp, tag=home)
-        form = self.client.get(reverse("finances:expense_edit", args=[exp.pk])).context["form"]
+        form = self.client.get(reverse("finances:expense_edit", args=[exp.pk])).context[
+            "form"
+        ]
         self.assertEqual(list(form.initial["tags"]), [home])
         self.client.post(
             reverse("finances:expense_edit", args=[exp.pk]),
-            {"name": "Rent", "amount": "100", "frequency": "monthly", "tags": [work.pk]},
+            {
+                "name": "Rent",
+                "amount": "100",
+                "frequency": "monthly",
+                "tags": [work.pk],
+            },
         )
-        self.assertEqual(list(UserExpenseTag.objects.values_list("tag", flat=True)), [work.pk])
+        self.assertEqual(
+            list(UserExpenseTag.objects.values_list("tag", flat=True)), [work.pk]
+        )
 
     def test_create_bucket_goal_tag_and_delete(self):
-        self.client.post(reverse("finances:bucket_add"), {"name": "B", "monthly_contribution": "10"})
-        self.client.post(reverse("finances:goal_add"), {"name": "G", "target_amount": "10", "target_date": "2030-01-01", "current_balance": "0"})
+        self.client.post(
+            reverse("finances:bucket_add"), {"name": "B", "monthly_contribution": "10"}
+        )
+        self.client.post(
+            reverse("finances:goal_add"),
+            {
+                "name": "G",
+                "target_amount": "10",
+                "target_date": "2030-01-01",
+                "current_balance": "0",
+            },
+        )
         self.client.post(reverse("finances:tag_add"), {"name": "T", "color": "#000000"})
         self.assertEqual(SavingBucket.objects.get().owner, self.alice)
         self.assertEqual(SavingsGoal.objects.get().owner, self.alice)
         tag = Tag.objects.get()
-        self.assertRedirects(self.client.post(reverse("finances:tag_delete", args=[tag.pk])), reverse("finances:tag_list"))
+        self.assertRedirects(
+            self.client.post(reverse("finances:tag_delete", args=[tag.pk])),
+            reverse("finances:tag_list"),
+        )
         self.assertFalse(Tag.objects.exists())
 
     def test_list_views_render(self):
@@ -200,11 +307,19 @@ class CrudTests(LoggedInTestCase):
         f.income(self.alice, "100").tags.add(home)
         f.goal(self.alice, "100", "0")
         f.expense(self.alice, "100", payer=self.alice, shared_with=[self.bob])
-        for name in ["income_list", "expense_list", "bucket_list", "goal_list", "tag_list"]:
+        for name in [
+            "income_list",
+            "expense_list",
+            "bucket_list",
+            "goal_list",
+            "tag_list",
+        ]:
             response = self.client.get(reverse(f"finances:{name}"))
             self.assertEqual(response.status_code, 200, name)
         ctx = self.client.get(reverse("finances:income_list")).context
-        self.assertEqual(ctx["user_tags"], [{"id": home.id, "name": "Home", "color": "#112233"}])
+        self.assertEqual(
+            ctx["user_tags"], [{"id": home.id, "name": "Home", "color": "#112233"}]
+        )
 
     def test_bucket_list_shows_thirteenth_month_reduction(self):
         travel = f.bucket(self.alice, "800")
@@ -217,53 +332,92 @@ class CrudTests(LoggedInTestCase):
 class BulkTagsTests(LoggedInTestCase):
     def post(self, name, payload):
         body = payload if isinstance(payload, str) else json.dumps(payload)
-        return self.client.post(reverse(f"finances:{name}"), body, content_type="application/json")
+        return self.client.post(
+            reverse(f"finances:{name}"), body, content_type="application/json"
+        )
 
     def test_add_remove_set_on_owned_items(self):
         a, b = f.tag(self.alice, "A"), f.tag(self.alice, "B")
         inc = f.income(self.alice, "1")
         other = f.income(self.bob, "1", name="Bob")
-        response = self.post("income_bulk_tags", {"action": "add", "item_ids": [inc.pk, other.pk], "tag_ids": [a.pk, b.pk]})
+        response = self.post(
+            "income_bulk_tags",
+            {"action": "add", "item_ids": [inc.pk, other.pk], "tag_ids": [a.pk, b.pk]},
+        )
         self.assertEqual(response.json(), {"ok": True, "updated": 1})
         self.assertEqual(set(inc.tags.all()), {a, b})
         self.assertEqual(list(other.tags.all()), [])
-        self.post("income_bulk_tags", {"action": "remove", "item_ids": [inc.pk], "tag_ids": [a.pk]})
+        self.post(
+            "income_bulk_tags",
+            {"action": "remove", "item_ids": [inc.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(list(inc.tags.all()), [b])
-        self.post("income_bulk_tags", {"action": "set", "item_ids": [inc.pk], "tag_ids": [a.pk]})
+        self.post(
+            "income_bulk_tags",
+            {"action": "set", "item_ids": [inc.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(list(inc.tags.all()), [a])
 
     def test_foreign_tags_are_ignored(self):
         bob_tag = f.tag(self.bob, "Bob")
         g = f.goal(self.alice, "1", "0")
-        self.post("goal_bulk_tags", {"action": "add", "item_ids": [g.pk], "tag_ids": [bob_tag.pk]})
+        self.post(
+            "goal_bulk_tags",
+            {"action": "add", "item_ids": [g.pk], "tag_ids": [bob_tag.pk]},
+        )
         self.assertEqual(list(g.tags.all()), [])
 
     def test_bucket_bulk_tags(self):
         a = f.tag(self.alice, "A")
         bk = f.bucket(self.alice, "1")
-        self.post("bucket_bulk_tags", {"action": "add", "item_ids": [bk.pk], "tag_ids": [a.pk]})
+        self.post(
+            "bucket_bulk_tags",
+            {"action": "add", "item_ids": [bk.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(list(bk.tags.all()), [a])
 
     def test_expense_tags_are_per_user(self):
         a, b = f.tag(self.alice, "A"), f.tag(self.alice, "B")
         shared = f.expense(self.bob, "1", shared_with=[self.alice])
-        UserExpenseTag.objects.create(user=self.bob, expense=shared, tag=f.tag(self.bob, "Bobs"))
+        UserExpenseTag.objects.create(
+            user=self.bob, expense=shared, tag=f.tag(self.bob, "Bobs")
+        )
 
         def mine():
-            return set(UserExpenseTag.objects.filter(user=self.alice).values_list("tag_id", flat=True))
+            return set(
+                UserExpenseTag.objects.filter(user=self.alice).values_list(
+                    "tag_id", flat=True
+                )
+            )
 
-        self.post("expense_bulk_tags", {"action": "add", "item_ids": [shared.pk], "tag_ids": [a.pk, b.pk]})
-        self.post("expense_bulk_tags", {"action": "add", "item_ids": [shared.pk], "tag_ids": [a.pk]})
+        self.post(
+            "expense_bulk_tags",
+            {"action": "add", "item_ids": [shared.pk], "tag_ids": [a.pk, b.pk]},
+        )
+        self.post(
+            "expense_bulk_tags",
+            {"action": "add", "item_ids": [shared.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(mine(), {a.pk, b.pk})
-        self.post("expense_bulk_tags", {"action": "remove", "item_ids": [shared.pk], "tag_ids": [a.pk]})
+        self.post(
+            "expense_bulk_tags",
+            {"action": "remove", "item_ids": [shared.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(mine(), {b.pk})
-        self.post("expense_bulk_tags", {"action": "set", "item_ids": [shared.pk], "tag_ids": [a.pk]})
+        self.post(
+            "expense_bulk_tags",
+            {"action": "set", "item_ids": [shared.pk], "tag_ids": [a.pk]},
+        )
         self.assertEqual(mine(), {a.pk})
         self.assertEqual(UserExpenseTag.objects.filter(user=self.bob).count(), 1)
 
     def test_invalid_json_and_action(self):
         self.assertEqual(self.post("income_bulk_tags", "not json").status_code, 400)
-        self.assertEqual(self.post("income_bulk_tags", {"action": "nuke"}).status_code, 400)
+        self.assertEqual(
+            self.post("income_bulk_tags", {"action": "nuke"}).status_code, 400
+        )
 
     def test_get_not_allowed(self):
-        self.assertEqual(self.client.get(reverse("finances:income_bulk_tags")).status_code, 405)
+        self.assertEqual(
+            self.client.get(reverse("finances:income_bulk_tags")).status_code, 405
+        )

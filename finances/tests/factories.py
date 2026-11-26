@@ -11,11 +11,15 @@ def user(username):
 
 
 def income(owner, amount, name="Salary", **kwargs):
-    return Income.objects.create(owner=owner, name=name, amount=Decimal(amount), **kwargs)
+    return Income.objects.create(
+        owner=owner, name=name, amount=Decimal(amount), **kwargs
+    )
 
 
 def expense(owner, amount, name="Rent", shared_with=(), **kwargs):
-    exp = Expense.objects.create(owner=owner, name=name, amount=Decimal(amount), **kwargs)
+    exp = Expense.objects.create(
+        owner=owner, name=name, amount=Decimal(amount), **kwargs
+    )
     exp.shared_with.add(*shared_with)
     return exp
 

@@ -55,5 +55,6 @@ class SiteSettingsAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         from django.shortcuts import redirect
         from django.urls import reverse
+
         obj = SiteSettings.get()
         return redirect(reverse("admin:finances_sitesettings_change", args=[obj.pk]))

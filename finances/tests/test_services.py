@@ -22,16 +22,18 @@ class SnapshotDetailTests(TestCase):
         self.assertEqual(snap["monthly_expenses"], Decimal("50.00"))
 
         later = calculate_financial_snapshot(self.alice, as_of=date(2025, 5, 10))
-        self.assertEqual(later["annual_withdrawals"], Decimal("0"))
+        self.assertEqual(later["annual_withdrawals"], Decimal(0))
         self.assertEqual(later["annual_savings_balance"], Decimal("100.00"))
 
     def test_thirteenth_month_to_bucket_reduces_bucket_need(self):
         travel = f.bucket(self.alice, "500")
         f.income(self.alice, "6000", months_per_year=13, thirteenth_month_bucket=travel)
         snap = calculate_financial_snapshot(self.alice, as_of=date(2025, 1, 1))
-        self.assertEqual(snap["thirteenth_month_total"], Decimal("6000"))
-        self.assertEqual(snap["monthly_saving_buckets"], Decimal("0"))  # 500 - 500, floored
-        self.assertEqual(snap["fun_money"], Decimal("6000"))
+        self.assertEqual(snap["thirteenth_month_total"], Decimal(6000))
+        self.assertEqual(
+            snap["monthly_saving_buckets"], Decimal(0)
+        )  # 500 - 500, floored
+        self.assertEqual(snap["fun_money"], Decimal(6000))
 
     def test_thirteenth_month_partial_reduction(self):
         travel = f.bucket(self.alice, "800")
@@ -43,8 +45,8 @@ class SnapshotDetailTests(TestCase):
         f.income(self.bob, "9999")
         f.expense(self.bob, "50")
         snap = calculate_financial_snapshot(self.alice, as_of=date(2025, 1, 1))
-        self.assertEqual(snap["monthly_income"], Decimal("0"))
-        self.assertEqual(snap["monthly_expenses"], Decimal("0"))
+        self.assertEqual(snap["monthly_income"], Decimal(0))
+        self.assertEqual(snap["monthly_expenses"], Decimal(0))
 
 
 class DebtTests(TestCase):
@@ -54,12 +56,16 @@ class DebtTests(TestCase):
         self.carol = f.user("carol")
 
     def test_payer_is_owed_by_participants(self):
-        f.expense(self.alice, "300", shared_with=[self.bob, self.carol], payer=self.alice)
+        f.expense(
+            self.alice, "300", shared_with=[self.bob, self.carol], payer=self.alice
+        )
         debts = calculate_debts(self.alice)
         self.assertEqual(
             debts["owed_to_me"],
-            [(self.bob, Decimal("100.00"), Decimal("1200.00")),
-             (self.carol, Decimal("100.00"), Decimal("1200.00"))],
+            [
+                (self.bob, Decimal("100.00"), Decimal("1200.00")),
+                (self.carol, Decimal("100.00"), Decimal("1200.00")),
+            ],
         )
         self.assertEqual(debts["i_owe"], [])
         self.assertEqual(
@@ -68,15 +74,25 @@ class DebtTests(TestCase):
         )
 
     def test_bilateral_debts_are_netted(self):
-        f.expense(self.alice, "300", shared_with=[self.bob], payer=self.alice)  # bob owes 150
-        f.expense(self.bob, "100", name="Net", shared_with=[self.alice], payer=self.bob)  # alice owes 50
+        f.expense(
+            self.alice, "300", shared_with=[self.bob], payer=self.alice
+        )  # bob owes 150
+        f.expense(
+            self.bob, "100", name="Net", shared_with=[self.alice], payer=self.bob
+        )  # alice owes 50
         self.assertEqual(
             calculate_debts(self.alice),
-            {"owed_to_me": [(self.bob, Decimal("100.00"), Decimal("1200.00"))], "i_owe": []},
+            {
+                "owed_to_me": [(self.bob, Decimal("100.00"), Decimal("1200.00"))],
+                "i_owe": [],
+            },
         )
         self.assertEqual(
             calculate_debts(self.bob),
-            {"owed_to_me": [], "i_owe": [(self.alice, Decimal("100.00"), Decimal("1200.00"))]},
+            {
+                "owed_to_me": [],
+                "i_owe": [(self.alice, Decimal("100.00"), Decimal("1200.00"))],
+            },
         )
 
     def test_equal_debts_cancel_out(self):

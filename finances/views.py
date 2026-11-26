@@ -5,19 +5,26 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
     ListView,
-    UpdateView,
     TemplateView,
+    UpdateView,
 )
 
-from django.utils import timezone
-
 from .forms import ExpenseForm, IncomeForm, SavingBucketForm, SavingsGoalForm, TagForm
-from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal, Tag, UserExpenseTag
+from .models import (
+    Expense,
+    Frequency,
+    Income,
+    SavingBucket,
+    SavingsGoal,
+    Tag,
+    UserExpenseTag,
+)
 from .services import calculate_debts, calculate_financial_snapshot
 
 
@@ -40,7 +47,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         if tag_id:
             incomes_qs = incomes_qs.filter(tags__id=tag_id)
-            expenses_qs = expenses_qs.filter(user_tags__user=user, user_tags__tag_id=tag_id)
+            expenses_qs = expenses_qs.filter(
+                user_tags__user=user, user_tags__tag_id=tag_id
+            )
             saving_buckets_qs = saving_buckets_qs.filter(tags__id=tag_id)
             savings_goals_qs = savings_goals_qs.filter(tags__id=tag_id)
 
@@ -65,16 +74,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Separate monthly vs annual expenses and compute shared/non-shared parts
         monthly_expense_rows = []
         annual_expense_rows = []
-        monthly_shared_total = Decimal("0")
-        monthly_non_shared_total = Decimal("0")
-        annual_shared_total = Decimal("0")
-        annual_non_shared_total = Decimal("0")
+        monthly_shared_total = Decimal(0)
+        monthly_non_shared_total = Decimal(0)
+        annual_shared_total = Decimal(0)
+        annual_non_shared_total = Decimal(0)
 
         for exp in expenses_qs:
             share = exp.share_for(user)
             is_shared = exp.participant_count > 1
-            shared_amount = share if is_shared else Decimal("0")
-            non_shared_amount = share if not is_shared else Decimal("0")
+            shared_amount = share if is_shared else Decimal(0)
+            non_shared_amount = share if not is_shared else Decimal(0)
             row = {
                 "id": exp.pk,
                 "name": exp.name,
@@ -108,9 +117,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         savings_goals = []
         for goal in savings_goals_qs:
             try:
-                percent = (goal.current_balance / goal.target_amount) * Decimal("100")
+                percent = (goal.current_balance / goal.target_amount) * Decimal(100)
             except Exception:
-                percent = Decimal("0")
+                percent = Decimal(0)
             savings_goals.append(
                 {
                     "id": goal.pk,
@@ -142,8 +151,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         for tag in tags:
             # sum share_for(user) for expenses that include this tag
             total = sum(
-                (exp.share_for(user) for exp in expenses_qs.filter(user_tags__user=user, user_tags__tag_id=tag.id)),
-                start=Decimal("0"),
+                (
+                    exp.share_for(user)
+                    for exp in expenses_qs.filter(
+                        user_tags__user=user, user_tags__tag_id=tag.id
+                    )
+                ),
+                start=Decimal(0),
             )
             if total > 0:
                 tag_expense_data.append(
@@ -158,18 +172,18 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             )
 
         def max_tag_value(data):
-            return max([d["value"] for d in data], default=Decimal("1"))
+            return max([d["value"] for d in data], default=Decimal(1))
 
         tag_expense_max = max_tag_value(tag_expense_data)
         tag_expense_total = sum(
-            [d["value"] for d in tag_expense_data], start=Decimal("0")
+            [d["value"] for d in tag_expense_data], start=Decimal(0)
         )
 
         def max_value(data):
             return max([d["value"] for d in data], default=1)
 
         def total_value(data):
-            return sum([d["value"] for d in data], start=Decimal("0"))
+            return sum([d["value"] for d in data], start=Decimal(0))
 
         # Compute snapshot once so we can test whether fun_money is negative
         snapshot = calculate_financial_snapshot(user)
@@ -252,7 +266,9 @@ class IncomeListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        ctx["user_tags"] = list(
+            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
+        )
         return ctx
 
 
@@ -291,7 +307,9 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["debts"] = calculate_debts(self.request.user)
-        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        ctx["user_tags"] = list(
+            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
+        )
         return ctx
 
 
@@ -324,7 +342,6 @@ class ExpenseUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
         return kwargs
 
 
-
 class ExpenseDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     model = Expense
     template_name = "finances/confirm_delete.html"
@@ -341,7 +358,9 @@ class SavingBucketListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        ctx["user_tags"] = list(
+            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
+        )
         # Per-bucket 13th-month reduction: how much of each bucket's monthly
         # contribution is already covered by a 13th-month salary lump sum.
         reductions = {}
@@ -350,12 +369,14 @@ class SavingBucketListView(LoginRequiredMixin, ListView):
             thirteenth_month_bucket__isnull=False,
         ):
             pk = income.thirteenth_month_bucket_id
-            reduction = (income.thirteenth_month_amount / Decimal('12')).quantize(Decimal('0.01'))
-            reductions[pk] = reductions.get(pk, Decimal('0')) + reduction
-        ctx['bucket_reductions'] = reductions
-        bucket_by_pk = {b.pk: b for b in ctx['buckets']}
-        ctx['bucket_effective'] = {
-            pk: max(bucket_by_pk[pk].monthly_contribution - reduction, Decimal('0'))
+            reduction = (income.thirteenth_month_amount / Decimal(12)).quantize(
+                Decimal("0.01")
+            )
+            reductions[pk] = reductions.get(pk, Decimal(0)) + reduction
+        ctx["bucket_reductions"] = reductions
+        bucket_by_pk = {b.pk: b for b in ctx["buckets"]}
+        ctx["bucket_effective"] = {
+            pk: max(bucket_by_pk[pk].monthly_contribution - reduction, Decimal(0))
             for pk, reduction in reductions.items()
             if pk in bucket_by_pk
         }
@@ -394,7 +415,9 @@ class SavingsGoalListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['user_tags'] = list(Tag.objects.filter(owner=self.request.user).values('id', 'name', 'color'))
+        ctx["user_tags"] = list(
+            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
+        )
         return ctx
 
 
@@ -452,11 +475,13 @@ class TagDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
 
 
 class BulkTagsMixin(LoginRequiredMixin, View):
-    http_method_names = ['post']
+    http_method_names = ["post"]
     model = None
 
     def handle_no_permission(self):
-        return JsonResponse({'ok': False, 'error': 'Authentication required.'}, status=403)
+        return JsonResponse(
+            {"ok": False, "error": "Authentication required."}, status=403
+        )
 
     def get_items_queryset(self, user, item_ids):
         return self.model.objects.filter(owner=user, pk__in=item_ids)
@@ -477,21 +502,21 @@ class BulkTagsMixin(LoginRequiredMixin, View):
         try:
             body = json.loads(request.body)
         except ValueError:
-            return JsonResponse({'ok': False, 'error': 'Invalid JSON.'}, status=400)
-        action = body.get('action')
-        item_ids = body.get('item_ids', [])
-        tag_ids = body.get('tag_ids', [])
-        if action not in ('add', 'remove', 'set'):
-            return JsonResponse({'ok': False, 'error': 'Invalid action.'}, status=400)
+            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+        action = body.get("action")
+        item_ids = body.get("item_ids", [])
+        tag_ids = body.get("tag_ids", [])
+        if action not in ("add", "remove", "set"):
+            return JsonResponse({"ok": False, "error": "Invalid action."}, status=400)
         items = list(self.get_items_queryset(request.user, item_ids))
         tags = list(Tag.objects.filter(owner=request.user, pk__in=tag_ids))
-        if action == 'add':
+        if action == "add":
             self.apply_tags(items, tags)
-        elif action == 'remove':
+        elif action == "remove":
             self.remove_tags(items, tags)
-        elif action == 'set':
+        elif action == "set":
             self.set_tags(items, tags)
-        return JsonResponse({'ok': True, 'updated': len(items)})
+        return JsonResponse({"ok": True, "updated": len(items)})
 
 
 class IncomeBulkTagsView(BulkTagsMixin):
@@ -522,12 +547,18 @@ class ExpenseBulkTagsView(BulkTagsMixin):
 
     def remove_tags(self, items, tags):
         user = self.request.user
-        UserExpenseTag.objects.filter(user=user, expense__in=items, tag__in=tags).delete()
+        UserExpenseTag.objects.filter(
+            user=user, expense__in=items, tag__in=tags
+        ).delete()
 
     def set_tags(self, items, tags):
         user = self.request.user
         UserExpenseTag.objects.filter(user=user, expense__in=items).delete()
         UserExpenseTag.objects.bulk_create(
-            [UserExpenseTag(user=user, expense=item, tag=tag) for item in items for tag in tags],
+            [
+                UserExpenseTag(user=user, expense=item, tag=tag)
+                for item in items
+                for tag in tags
+            ],
             ignore_conflicts=True,
         )

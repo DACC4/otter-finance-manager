@@ -25,3 +25,10 @@ packages = ["otter_finance_manager"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+# RUF012: Django's declarative class attributes (Meta, fields, widgets) are idiomatic.
+extend-ignore = ["RUF012"]

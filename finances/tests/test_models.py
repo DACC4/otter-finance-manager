@@ -14,11 +14,13 @@ class IncomeTests(TestCase):
 
     def test_monthly_income_is_its_amount(self):
         inc = f.income(self.alice, "4000")
-        self.assertEqual(inc.monthly_amount, Decimal("4000"))
-        self.assertEqual(inc.thirteenth_month_amount, Decimal("0"))
+        self.assertEqual(inc.monthly_amount, Decimal(4000))
+        self.assertEqual(inc.thirteenth_month_amount, Decimal(0))
 
     def test_annual_income_is_spread_over_months_per_year(self):
-        inc = f.income(self.alice, "52000", frequency=Frequency.ANNUAL, months_per_year=13)
+        inc = f.income(
+            self.alice, "52000", frequency=Frequency.ANNUAL, months_per_year=13
+        )
         self.assertEqual(inc.monthly_amount, Decimal("4000.00"))
         self.assertEqual(inc.thirteenth_month_amount, Decimal("4000.00"))
 
@@ -37,7 +39,7 @@ class ExpenseShareTests(TestCase):
         exp = f.expense(self.alice, "100")
         self.assertEqual(exp.participant_count, 1)
         self.assertEqual(exp.share_for(self.alice), Decimal("100.00"))
-        self.assertEqual(exp.share_for(self.bob), Decimal("0"))
+        self.assertEqual(exp.share_for(self.bob), Decimal(0))
 
     def test_shared_expense_splits_evenly_and_rounds(self):
         exp = f.expense(self.alice, "100", shared_with=[self.bob, self.carol])
@@ -55,9 +57,9 @@ class ExpenseShareTests(TestCase):
     def test_annual_share_is_zero_for_non_participant_or_monthly(self):
         annual = f.annual_expense(self.alice, "1200", 6)
         monthly = f.expense(self.alice, "100")
-        self.assertEqual(annual.annual_share_for(self.bob), Decimal("0"))
-        self.assertEqual(annual.monthly_annual_saving(self.bob), Decimal("0"))
-        self.assertEqual(monthly.annual_share_for(self.alice), Decimal("0"))
+        self.assertEqual(annual.annual_share_for(self.bob), Decimal(0))
+        self.assertEqual(annual.monthly_annual_saving(self.bob), Decimal(0))
+        self.assertEqual(monthly.annual_share_for(self.alice), Decimal(0))
 
     def test_cycle_months_and_due_month(self):
         exp = f.annual_expense(self.alice, "1200", 3)
@@ -74,9 +76,13 @@ class ExpenseShareTests(TestCase):
 
     def test_expected_annual_balance(self):
         exp = f.annual_expense(self.alice, "1200", 3)
-        self.assertEqual(exp.expected_annual_balance(self.alice, date(2025, 6, 1)), Decimal("300.00"))
+        self.assertEqual(
+            exp.expected_annual_balance(self.alice, date(2025, 6, 1)), Decimal("300.00")
+        )
         monthly = f.expense(self.alice, "100")
-        self.assertEqual(monthly.expected_annual_balance(self.alice, date(2025, 6, 1)), Decimal("0"))
+        self.assertEqual(
+            monthly.expected_annual_balance(self.alice, date(2025, 6, 1)), Decimal(0)
+        )
 
 
 class SavingsGoalTests(TestCase):
@@ -90,14 +96,18 @@ class SavingsGoalTests(TestCase):
 
     def test_past_or_same_month_target_needs_everything_now(self):
         past = f.goal(self.alice, "1000", "0", target_date=date(2024, 1, 1))
-        same_month = f.goal(self.alice, "1000", "0", target_date=date(2025, 1, 20), name="b")
+        same_month = f.goal(
+            self.alice, "1000", "0", target_date=date(2025, 1, 20), name="b"
+        )
         self.assertEqual(past.months_remaining(date(2025, 1, 1)), 1)
         self.assertEqual(same_month.months_remaining(date(2025, 1, 1)), 1)
-        self.assertEqual(past.required_monthly_saving(date(2025, 1, 1)), Decimal("1000.00"))
+        self.assertEqual(
+            past.required_monthly_saving(date(2025, 1, 1)), Decimal("1000.00")
+        )
 
     def test_reached_goal_needs_nothing(self):
         g = f.goal(self.alice, "1000", "1500")
-        self.assertEqual(g.required_monthly_saving(date(2025, 1, 1)), Decimal("0"))
+        self.assertEqual(g.required_monthly_saving(date(2025, 1, 1)), Decimal(0))
 
 
 class SiteSettingsTests(TestCase):

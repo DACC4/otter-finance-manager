@@ -22,14 +22,12 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
         user = kwargs.get("user")
         super().__init__(*args, **kwargs)
         if user:
-            self.fields["thirteenth_month_bucket"].queryset = (
-                SavingBucket.objects.filter(owner=user)
-            )
-            self.fields["thirteenth_month_expense"].queryset = (
-                Expense.objects.filter(
-                    Q(owner=user) | Q(shared_with=user)
-                ).distinct()
-            )
+            self.fields[
+                "thirteenth_month_bucket"
+            ].queryset = SavingBucket.objects.filter(owner=user)
+            self.fields["thirteenth_month_expense"].queryset = Expense.objects.filter(
+                Q(owner=user) | Q(shared_with=user)
+            ).distinct()
 
     def clean(self):
         cleaned = super().clean()
@@ -46,9 +44,14 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
     class Meta:
         model = Income
         fields = [
-            "name", "amount", "frequency", "months_per_year",
-            "thirteenth_month_bucket", "thirteenth_month_expense",
-            "tags", "start_date",
+            "name",
+            "amount",
+            "frequency",
+            "months_per_year",
+            "thirteenth_month_bucket",
+            "thirteenth_month_expense",
+            "tags",
+            "start_date",
         ]
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
@@ -64,7 +67,7 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
     )
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.get("user")   # peek before UserTagsMixin pops it
+        user = kwargs.get("user")  # peek before UserTagsMixin pops it
         super().__init__(*args, **kwargs)
         self._user = user
         self.fields["target_month"].help_text = "Only relevant for annual expenses."
@@ -89,10 +92,12 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         if commit and self._user:
             tags = self.cleaned_data.get("tags", [])
             UserExpenseTag.objects.filter(user=self._user, expense=expense).delete()
-            UserExpenseTag.objects.bulk_create([
-                UserExpenseTag(user=self._user, expense=expense, tag=tag)
-                for tag in tags
-            ])
+            UserExpenseTag.objects.bulk_create(
+                [
+                    UserExpenseTag(user=self._user, expense=expense, tag=tag)
+                    for tag in tags
+                ]
+            )
         return expense
 
     class Meta:
