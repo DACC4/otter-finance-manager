@@ -3,8 +3,8 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal
-from .services import calculate_financial_snapshot
+from finances.models import Expense, Frequency, Income, SavingBucket, SavingsGoal
+from finances.services import calculate_financial_snapshot
 
 
 class SnapshotTests(TestCase):
