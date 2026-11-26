@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
@@ -28,204 +26,74 @@ from .services import (
     calculate_debts,
     calculate_financial_snapshot,
     effective_bucket_contribution,
+    expense_split_totals,
+    goal_progress,
+    max_value,
+    sort_rows,
+    tag_expense_rows,
     thirteenth_month_bucket_reductions,
+    total_value,
+    value_rows,
 )
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "finances/dashboard.html"
 
+    def _querysets(self, user, tag_id):
+        """The user's items, narrowed to one of their tags when a filter is set."""
+        incomes = Income.objects.filter(owner=user)
+        expenses = Expense.objects.visible_to(user)
+        buckets = SavingBucket.objects.filter(owner=user)
+        goals = SavingsGoal.objects.filter(owner=user)
+        if tag_id is not None:
+            incomes = incomes.filter(tags__id=tag_id)
+            expenses = expenses.filter(user_tags__user=user, user_tags__tag_id=tag_id)
+            buckets = buckets.filter(tags__id=tag_id)
+            goals = goals.filter(tags__id=tag_id)
+        return incomes, expenses, buckets, goals
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         as_of = timezone.now().date()
+        sort_option = (self.request.GET.get("sort") or "price_desc").lower()
         tags = Tag.objects.filter(owner=user)
         tag_id = parse_owned_tag_id(
             self.request.GET.get("tag"), tags.values_list("id", flat=True)
         )
+        incomes, expenses, buckets, goals = self._querysets(user, tag_id)
 
-        incomes_qs = Income.objects.filter(owner=user)
-        expenses_qs = Expense.objects.visible_to(user)
-        saving_buckets_qs = SavingBucket.objects.filter(owner=user)
-        savings_goals_qs = SavingsGoal.objects.filter(owner=user)
+        charts = {
+            "incomes": value_rows(incomes, lambda i: i.monthly_amount),
+            "expenses": value_rows(expenses, lambda e: e.share_for(user)),
+            "buckets": value_rows(buckets, lambda b: b.monthly_contribution),
+            "goals": value_rows(goals, lambda g: g.required_monthly_saving(as_of)),
+            "tag_expense": tag_expense_rows(tags, expenses, user),
+        }
+        for name, rows in charts.items():
+            rows = sort_rows(rows, sort_option)
+            context[f"{name}_data"] = rows
+            context[f"{name}_max"] = max_value(rows)
+            context[f"{name}_total"] = total_value(rows)
 
-        if tag_id is not None:
-            incomes_qs = incomes_qs.filter(tags__id=tag_id)
-            expenses_qs = expenses_qs.filter(
-                user_tags__user=user, user_tags__tag_id=tag_id
-            )
-            saving_buckets_qs = saving_buckets_qs.filter(tags__id=tag_id)
-            savings_goals_qs = savings_goals_qs.filter(tags__id=tag_id)
-
-        thirteenth_month_incomes = [
-            inc for inc in incomes_qs if inc.months_per_year == 13
-        ]
-
-        annual_expenses = [
-            exp for exp in expenses_qs if exp.frequency == Frequency.ANNUAL
-        ]
-        annual_due_expenses = [
-            exp for exp in annual_expenses if exp.is_due_in_month(as_of)
-        ]
-
-        incomes_data = [
-            {"name": inc.name, "value": inc.monthly_amount} for inc in incomes_qs
-        ]
-        expenses_data = [
-            {"name": exp.name, "value": exp.share_for(user)} for exp in expenses_qs
-        ]
-
-        # Separate monthly vs annual expenses and compute shared/non-shared parts
-        monthly_expense_rows = []
-        annual_expense_rows = []
-        monthly_shared_total = Decimal(0)
-        monthly_non_shared_total = Decimal(0)
-        annual_shared_total = Decimal(0)
-        annual_non_shared_total = Decimal(0)
-
-        for exp in expenses_qs:
-            share = exp.share_for(user)
-            is_shared = exp.participant_count > 1
-            shared_amount = share if is_shared else Decimal(0)
-            non_shared_amount = share if not is_shared else Decimal(0)
-            row = {
-                "id": exp.pk,
-                "name": exp.name,
-                "value": share,
-                "shared_amount": shared_amount,
-                "non_shared_amount": non_shared_amount,
-                "is_shared": is_shared,
-            }
-            if exp.frequency == Frequency.ANNUAL:
-                annual_expense_rows.append(row)
-                annual_shared_total += shared_amount
-                annual_non_shared_total += non_shared_amount
-            else:
-                monthly_expense_rows.append(row)
-                monthly_shared_total += shared_amount
-                monthly_non_shared_total += non_shared_amount
-
-        monthly_total = monthly_shared_total + monthly_non_shared_total
-        annual_total = annual_shared_total + annual_non_shared_total
-        combined_total = monthly_total + annual_total
-        buckets_data = [
-            {"name": bucket.name, "value": bucket.monthly_contribution}
-            for bucket in saving_buckets_qs
-        ]
-        goals_data = [
-            {"name": goal.name, "value": goal.required_monthly_saving(as_of)}
-            for goal in savings_goals_qs
-        ]
-
-        # Build a list of savings goals with progress information for the template
-        savings_goals = []
-        for goal in savings_goals_qs:
-            try:
-                percent = (goal.current_balance / goal.target_amount) * Decimal(100)
-            except Exception:
-                percent = Decimal(0)
-            savings_goals.append(
-                {
-                    "id": goal.pk,
-                    "name": goal.name,
-                    "current": goal.current_balance,
-                    "target": goal.target_amount,
-                    "percent": percent.quantize(Decimal("0.01")),
-                    "required_monthly": goal.required_monthly_saving(as_of),
-                }
-            )
-
-        # Sorting option from querystring: 'price_desc' (default), 'price_asc', or 'none'
-        sort_option = (self.request.GET.get("sort") or "price_desc").lower()
-        if sort_option in ("price_desc", "price_asc"):
-            reverse = sort_option == "price_desc"
-            incomes_data = sorted(
-                incomes_data, key=lambda d: d["value"], reverse=reverse
-            )
-            expenses_data = sorted(
-                expenses_data, key=lambda d: d["value"], reverse=reverse
-            )
-            buckets_data = sorted(
-                buckets_data, key=lambda d: d["value"], reverse=reverse
-            )
-            goals_data = sorted(goals_data, key=lambda d: d["value"], reverse=reverse)
-
-        # Expenses by tag (sum of per-user share for expenses that have the tag)
-        tag_expense_data = []
-        for tag in tags:
-            # sum share_for(user) for expenses that include this tag
-            total = sum(
-                (
-                    exp.share_for(user)
-                    for exp in expenses_qs.filter(
-                        user_tags__user=user, user_tags__tag_id=tag.id
-                    )
-                ),
-                start=Decimal(0),
-            )
-            if total > 0:
-                tag_expense_data.append(
-                    {"id": tag.id, "name": tag.name, "value": total, "color": tag.color}
-                )
-
-        # sort tag data according to sort option as well
-        if sort_option in ("price_desc", "price_asc"):
-            rev = sort_option == "price_desc"
-            tag_expense_data = sorted(
-                tag_expense_data, key=lambda d: d["value"], reverse=rev
-            )
-
-        def max_tag_value(data):
-            return max([d["value"] for d in data], default=Decimal(1))
-
-        tag_expense_max = max_tag_value(tag_expense_data)
-        tag_expense_total = sum(
-            [d["value"] for d in tag_expense_data], start=Decimal(0)
-        )
-
-        def max_value(data):
-            return max([d["value"] for d in data], default=1)
-
-        def total_value(data):
-            return sum([d["value"] for d in data], start=Decimal(0))
-
-        # Compute snapshot once so we can test whether fun_money is negative
         snapshot = calculate_financial_snapshot(user)
-        fun_negative = snapshot.get("fun_money", 0) < 0
-
+        context.update(expense_split_totals(expenses, user))
         context.update(
             {
                 "snapshot": snapshot,
-                "fun_negative": fun_negative,
-                "savings_goals": savings_goals,
-                "annual_due_expenses": annual_due_expenses,
+                "fun_negative": snapshot["fun_money"] < 0,
+                "savings_goals": [goal_progress(g, as_of) for g in goals],
+                "annual_due_expenses": [
+                    e
+                    for e in expenses
+                    if e.frequency == Frequency.ANNUAL and e.is_due_in_month(as_of)
+                ],
+                "thirteenth_month_incomes": [
+                    i for i in incomes if i.months_per_year == 13
+                ],
                 "tag_filter": tag_id,
                 "tags": tags,
-                "incomes_data": incomes_data,
-                "expenses_data": expenses_data,
-                "monthly_expense_rows": monthly_expense_rows,
-                "annual_expense_rows": annual_expense_rows,
-                "monthly_shared_total": monthly_shared_total,
-                "monthly_non_shared_total": monthly_non_shared_total,
-                "annual_shared_total": annual_shared_total,
-                "annual_non_shared_total": annual_non_shared_total,
-                "monthly_total": monthly_total,
-                "annual_total": annual_total,
-                "combined_total": combined_total,
-                "buckets_data": buckets_data,
-                "goals_data": goals_data,
-                "incomes_max": max_value(incomes_data),
-                "expenses_max": max_value(expenses_data),
-                "buckets_max": max_value(buckets_data),
-                "goals_max": max_value(goals_data),
-                "incomes_total": total_value(incomes_data),
-                "expenses_total": total_value(expenses_data),
-                "buckets_total": total_value(buckets_data),
-                "goals_total": total_value(goals_data),
-                "tag_expense_data": tag_expense_data,
-                "tag_expense_max": tag_expense_max,
-                "tag_expense_total": tag_expense_total,
-                "thirteenth_month_incomes": thirteenth_month_incomes,
             }
         )
         return context

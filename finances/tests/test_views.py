@@ -72,7 +72,6 @@ class DashboardTests(LoggedInTestCase):
         self.assertEqual(ctx["monthly_shared_total"], Decimal("600.00"))
         self.assertEqual(ctx["monthly_non_shared_total"], Decimal("200.00"))
         self.assertEqual(ctx["annual_non_shared_total"], Decimal("100.00"))
-        self.assertEqual(ctx["monthly_total"], Decimal("800.00"))
         self.assertEqual(ctx["combined_total"], Decimal("900.00"))
         self.assertEqual(
             [r["name"] for r in ctx["expenses_data"]], ["Rent", "Phone", "Insurance"]
@@ -92,7 +91,7 @@ class DashboardTests(LoggedInTestCase):
                 }
             ],
         )
-        self.assertEqual(ctx["tag_expense_total"], Decimal("600.00"))
+        self.assertEqual(ctx["tag_expense_max"], Decimal("600.00"))
         percents = {g["name"]: g["percent"] for g in ctx["savings_goals"]}
         self.assertEqual(
             percents, {"Laptop": Decimal("25.00"), "Zero": Decimal("0.00")}

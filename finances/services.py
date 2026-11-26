@@ -3,7 +3,14 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal
+from .models import (
+    Expense,
+    Frequency,
+    Income,
+    SavingBucket,
+    SavingsGoal,
+    UserExpenseTag,
+)
 
 CENT = Decimal("0.01")
 
@@ -147,3 +154,73 @@ def calculate_debts(user) -> dict[str, list[tuple]]:
             for other, monthly in sorted(net_i_owe.items(), key=lambda x: x[0].username)
         ],
     }
+
+
+# ── Dashboard building blocks ─────────────────────────────────────────────
+
+SORT_OPTIONS = {"price_desc": True, "price_asc": False}  # option -> reverse
+
+
+def value_rows(items, value) -> list[dict]:
+    """Bar-chart rows: one {"name", "value"} per item."""
+    return [{"name": item.name, "value": value(item)} for item in items]
+
+
+def sort_rows(rows: list[dict], sort_option: str) -> list[dict]:
+    """Sort by value for a known option; any other option keeps the given order."""
+    if sort_option not in SORT_OPTIONS:
+        return rows
+    return sorted(rows, key=lambda row: row["value"], reverse=SORT_OPTIONS[sort_option])
+
+
+def max_value(rows: list[dict]) -> Decimal:
+    """Largest value, used as the 100% bar width; 1 when empty to avoid dividing by 0."""
+    return max((row["value"] for row in rows), default=Decimal(1))
+
+
+def total_value(rows: list[dict]) -> Decimal:
+    return sum((row["value"] for row in rows), Decimal(0))
+
+
+def expense_split_totals(expenses, user) -> dict[str, Decimal]:
+    """User's share split by frequency (monthly/annual) and shared vs. not shared."""
+    totals = {
+        f"{frequency}_{kind}_total": Decimal(0)
+        for frequency in ("monthly", "annual")
+        for kind in ("shared", "non_shared")
+    }
+    for expense in expenses:
+        frequency = "annual" if expense.frequency == Frequency.ANNUAL else "monthly"
+        kind = "shared" if expense.participant_count > 1 else "non_shared"
+        totals[f"{frequency}_{kind}_total"] += expense.share_for(user)
+    totals["combined_total"] = sum(totals.values(), Decimal(0))
+    return totals
+
+
+def goal_progress(goal, as_of) -> dict:
+    percent = (
+        goal.current_balance / goal.target_amount * Decimal(100)
+        if goal.target_amount
+        else Decimal(0)
+    )
+    return {
+        "id": goal.pk,
+        "name": goal.name,
+        "current": goal.current_balance,
+        "target": goal.target_amount,
+        "percent": percent.quantize(CENT),
+        "required_monthly": goal.required_monthly_saving(as_of),
+    }
+
+
+def tag_expense_rows(tags, expenses, user) -> list[dict]:
+    """Per-tag sum of the user's share of the expenses they tagged with it."""
+    shares = {expense.pk: expense.share_for(user) for expense in expenses}
+    totals: dict[int, Decimal] = defaultdict(Decimal)
+    for link in UserExpenseTag.objects.filter(user=user, expense_id__in=shares):
+        totals[link.tag_id] += shares[link.expense_id]
+    return [
+        {"id": tag.id, "name": tag.name, "value": totals[tag.id], "color": tag.color}
+        for tag in tags
+        if totals[tag.id] > 0
+    ]
