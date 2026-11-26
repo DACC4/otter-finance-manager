@@ -1,4 +1,6 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -124,14 +126,32 @@ class UserFormKwargsMixin:
         return {**super().get_form_kwargs(), "user": self.request.user}
 
 
-class OwnerCreateMixin(LoginRequiredMixin, UserFormKwargsMixin):
+class SavedMessageMixin(SuccessMessageMixin):
+    success_message = "Saved “%(name)s”."
+
+
+class OwnerCreateMixin(LoginRequiredMixin, SavedMessageMixin, UserFormKwargsMixin):
     def form_valid(self, form):
         form.instance.owner = self.request.user
         return super().form_valid(form)
 
 
-class OwnerUpdateMixin(LoginRequiredMixin, OwnerCheckMixin, UserFormKwargsMixin):
+class OwnerUpdateMixin(
+    LoginRequiredMixin, OwnerCheckMixin, SavedMessageMixin, UserFormKwargsMixin
+):
     pass
+
+
+class OwnerDeleteMixin(LoginRequiredMixin, OwnerCheckMixin):
+    """Owner-only delete with a confirmation page and a "Deleted" message."""
+
+    template_name = "finances/confirm_delete.html"
+
+    def form_valid(self, form):
+        name = self.object.name
+        response = super().form_valid(form)
+        messages.success(self.request, f"Deleted “{name}”.")
+        return response
 
 
 class OwnedListMixin(LoginRequiredMixin):
@@ -174,9 +194,8 @@ class IncomeUpdateView(OwnerUpdateMixin, UpdateView):
     extra_context = {"title": "Edit income"}
 
 
-class IncomeDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
+class IncomeDeleteView(OwnerDeleteMixin, DeleteView):
     model = Income
-    template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:income_list")
 
 
@@ -214,9 +233,8 @@ class ExpenseUpdateView(OwnerUpdateMixin, UpdateView):
         return self.get_object().has_participant(self.request.user)
 
 
-class ExpenseDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
+class ExpenseDeleteView(OwnerDeleteMixin, DeleteView):
     model = Expense
-    template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:expense_list")
 
 
@@ -255,9 +273,8 @@ class SavingBucketUpdateView(OwnerUpdateMixin, UpdateView):
     extra_context = {"title": "Edit saving bucket"}
 
 
-class SavingBucketDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
+class SavingBucketDeleteView(OwnerDeleteMixin, DeleteView):
     model = SavingBucket
-    template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:bucket_list")
 
 
@@ -283,9 +300,8 @@ class SavingsGoalUpdateView(OwnerUpdateMixin, UpdateView):
     extra_context = {"title": "Edit savings goal"}
 
 
-class SavingsGoalDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
+class SavingsGoalDeleteView(OwnerDeleteMixin, DeleteView):
     model = SavingsGoal
-    template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:goal_list")
 
 
@@ -311,9 +327,8 @@ class TagUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
     extra_context = {"title": "Edit tag"}
 
 
-class TagDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
+class TagDeleteView(OwnerDeleteMixin, DeleteView):
     model = Tag
-    template_name = "finances/confirm_delete.html"
     success_url = reverse_lazy("finances:tag_list")
 
 

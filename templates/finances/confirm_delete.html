@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="card" style="max-width:440px;margin:48px auto 0;">
-    <h2 style="margin-bottom:8px;">Delete {{ object }}</h2>
+    <h2 style="margin-bottom:8px;">Delete “{{ object.name }}”</h2>
     <p style="color:var(--ink-2);margin-bottom:24px;">This action is permanent and cannot be undone. Are you sure you want to proceed?</p>
     <form method="post" style="display:flex;align-items:center;gap:10px;">
         {% csrf_token %}
@@ -10,7 +10,7 @@
             onmouseover="this.style.background='#7F1D1D'" onmouseout="this.style.background='var(--expense)'">
             Delete permanently
         </button>
-        <a class="btn secondary" href="{% url 'finances:dashboard' %}">Cancel</a>
+        <a class="btn secondary" href="{{ view.success_url }}">Cancel</a>
     </form>
 </div>
 {% endblock %}

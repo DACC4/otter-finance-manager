@@ -112,6 +112,8 @@
         }
         nav a:hover, nav .nav-link-btn:hover { color: #fff; background: rgba(255,255,255,0.07); }
         /* Logout must POST (Django 5+); render the form's button like a nav link. */
+        .flash { margin-bottom: 16px; padding: 12px 18px; background: var(--accent-lt); border-color: #FDE68A; color: #92400E; }
+        .flash-success { background: var(--income-lt); border-color: var(--income); color: var(--income); }
         nav .logout-form { display: flex; margin: 0; }
         nav .nav-link-btn { background: none; border: 0; border-bottom: 2px solid transparent; font-family: inherit; cursor: pointer; }
         nav a.active { color: #fff; border-bottom-color: var(--accent); }
@@ -409,7 +411,7 @@
 <div class="container">
     {% if messages %}
         {% for message in messages %}
-            <div class="card" style="background:var(--accent-lt);border-color:#FDE68A;color:#92400E;margin-bottom:16px;padding:12px 18px;">{{ message }}</div>
+            <div class="card flash flash-{{ message.tags|default:'info' }}" role="status">{{ message }}</div>
         {% endfor %}
     {% endif %}
     {% block content %}{% endblock %}

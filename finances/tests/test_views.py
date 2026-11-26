@@ -623,3 +623,34 @@ class LogoutTests(LoggedInTestCase):
         self.assertRedirects(response, reverse("login"))
         after = self.client.get(reverse("finances:dashboard"))
         self.assertEqual(after.status_code, 302)
+
+
+class FeedbackMessageTests(LoggedInTestCase):
+    def test_create_update_delete_confirm_with_a_message(self):
+        response = self.client.post(
+            reverse("finances:bucket_add"),
+            {"name": "Travel", "monthly_contribution": "10"},
+            follow=True,
+        )
+        self.assertContains(response, "Saved “Travel”.")
+        bucket = SavingBucket.objects.get()
+        response = self.client.post(
+            reverse("finances:bucket_edit", args=[bucket.pk]),
+            {"name": "Trips", "monthly_contribution": "20"},
+            follow=True,
+        )
+        self.assertContains(response, "Saved “Trips”.")
+        response = self.client.post(
+            reverse("finances:bucket_delete", args=[bucket.pk]), follow=True
+        )
+        self.assertContains(response, "Deleted “Trips”.")
+
+    def test_delete_page_cancel_returns_to_the_list(self):
+        exp = f.expense(self.alice, "10")
+        page = self.client.get(reverse("finances:expense_delete", args=[exp.pk]))
+        self.assertContains(
+            page,
+            f'<a class="btn secondary" href="{reverse("finances:expense_list")}">'
+            "Cancel</a>",
+            html=True,
+        )
