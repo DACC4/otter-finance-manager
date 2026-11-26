@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseForbidden, JsonResponse
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import (
@@ -139,7 +139,14 @@ class OwnerCreateMixin(LoginRequiredMixin, SavedMessageMixin, UserFormKwargsMixi
 class OwnerUpdateMixin(
     LoginRequiredMixin, OwnerCheckMixin, SavedMessageMixin, UserFormKwargsMixin
 ):
-    pass
+    delete_url_name: str  # route of the matching delete view
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # Only the owner may delete; participants editing a shared expense may not.
+        if self.object.owner_id == self.request.user.pk:
+            ctx["delete_url"] = reverse(self.delete_url_name, args=[self.object.pk])
+        return ctx
 
 
 class OwnerDeleteMixin(LoginRequiredMixin, OwnerCheckMixin):
@@ -187,6 +194,7 @@ class IncomeCreateView(OwnerCreateMixin, CreateView):
 
 
 class IncomeUpdateView(OwnerUpdateMixin, UpdateView):
+    delete_url_name = "finances:income_delete"
     model = Income
     form_class = IncomeForm
     template_name = "finances/form.html"
@@ -222,6 +230,7 @@ class ExpenseCreateView(OwnerCreateMixin, CreateView):
 
 
 class ExpenseUpdateView(OwnerUpdateMixin, UpdateView):
+    delete_url_name = "finances:expense_delete"
     model = Expense
     form_class = ExpenseForm
     template_name = "finances/form.html"
@@ -266,6 +275,7 @@ class SavingBucketCreateView(OwnerCreateMixin, CreateView):
 
 
 class SavingBucketUpdateView(OwnerUpdateMixin, UpdateView):
+    delete_url_name = "finances:bucket_delete"
     model = SavingBucket
     form_class = SavingBucketForm
     template_name = "finances/form.html"
@@ -293,6 +303,7 @@ class SavingsGoalCreateView(OwnerCreateMixin, CreateView):
 
 
 class SavingsGoalUpdateView(OwnerUpdateMixin, UpdateView):
+    delete_url_name = "finances:goal_delete"
     model = SavingsGoal
     form_class = SavingsGoalForm
     template_name = "finances/form.html"
@@ -319,7 +330,8 @@ class TagCreateView(OwnerCreateMixin, CreateView):
     extra_context = {"title": "Add tag"}
 
 
-class TagUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
+class TagUpdateView(OwnerUpdateMixin, UpdateView):
+    delete_url_name = "finances:tag_delete"
     model = Tag
     form_class = TagForm
     template_name = "finances/form.html"

@@ -25,6 +25,8 @@
     }
     .check-list label:has(input:checked) { border-color: var(--primary); background: var(--surface-2); }
     .check-list input[type="checkbox"] { width: auto; margin: 0; padding: 0; accent-color: var(--primary); }
+    .form-actions .btn.danger { margin-left: auto; color: var(--expense); background: none; border: 1px solid var(--expense); }
+    .form-actions .btn.danger:hover { background: var(--expense-lt); }
     .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
 </style>
 
@@ -52,6 +54,7 @@
         <div class="form-actions">
             <button type="submit">Save</button>
             <a href="javascript:history.back()" class="btn secondary">Cancel</a>
+            {% if delete_url %}<a class="btn danger" href="{{ delete_url }}">Delete</a>{% endif %}
         </div>
     </form>
 

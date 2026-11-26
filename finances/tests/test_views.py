@@ -698,3 +698,29 @@ class ReadableFormTests(LoggedInTestCase):
             income_page, f'<option value="{travel.pk}">Travel</option>', html=True
         )
         self.assertNotContains(income_page, "(alice)")
+
+
+class EditPageDeleteButtonTests(LoggedInTestCase):
+    def delete_button(self, url_name, pk):
+        url = reverse(url_name, args=[pk])
+        return f'<a class="btn danger" href="{url}">Delete</a>'
+
+    def test_owner_sees_delete_on_every_edit_page(self):
+        items = {
+            "income": f.income(self.alice, "1"),
+            "expense": f.expense(self.alice, "1"),
+            "bucket": f.bucket(self.alice, "1"),
+            "goal": f.goal(self.alice, "1", "0"),
+            "tag": f.tag(self.alice),
+        }
+        for name, obj in items.items():
+            page = self.client.get(reverse(f"finances:{name}_edit", args=[obj.pk]))
+            self.assertContains(
+                page, self.delete_button(f"finances:{name}_delete", obj.pk), html=True
+            )
+
+    def test_participant_editing_shared_expense_gets_no_delete(self):
+        exp = f.expense(self.bob, "100", shared_with=[self.alice])
+        page = self.client.get(reverse("finances:expense_edit", args=[exp.pk]))
+        self.assertEqual(page.status_code, 200)
+        self.assertNotContains(page, 'class="btn danger"')
