@@ -5,6 +5,28 @@ from django.utils import timezone
 
 from .models import Expense, Frequency, Income, SavingBucket, SavingsGoal
 
+CENT = Decimal("0.01")
+
+
+def thirteenth_month_bucket_reductions(incomes) -> dict[int, Decimal]:
+    """Monthly amount of each bucket already covered by a 13th-month lump sum.
+
+    One annual payment allocated to a bucket covers thirteenth_month_amount / 12
+    of that bucket's monthly contribution.
+    """
+    reductions: dict[int, Decimal] = defaultdict(Decimal)
+    for income in incomes:
+        if income.thirteenth_month_bucket_id is not None:
+            monthly = (income.thirteenth_month_amount / Decimal(12)).quantize(CENT)
+            reductions[income.thirteenth_month_bucket_id] += monthly
+    return dict(reductions)
+
+
+def effective_bucket_contribution(bucket, reductions: dict[int, Decimal]) -> Decimal:
+    """What the user still has to put in each month; a reduction never goes below 0."""
+    reduction = reductions.get(bucket.pk, Decimal(0))
+    return max(bucket.monthly_contribution - reduction, Decimal(0))
+
 
 def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
     as_of = as_of or timezone.now().date()
@@ -18,21 +40,10 @@ def calculate_financial_snapshot(user, as_of=None) -> dict[str, Decimal]:
     monthly_expenses = sum(
         (expense.share_for(user) for expense in expenses), Decimal(0)
     )
+    reductions = thirteenth_month_bucket_reductions(incomes)
     monthly_saving_buckets = sum(
-        (bucket.monthly_contribution for bucket in saving_buckets), Decimal(0)
-    )
-    # 13th-month incomes allocated to a bucket reduce the monthly saving needed,
-    # since one annual lump sum covers thirteenth_month_amount / 12 per month.
-    bucket_thirteenth_reduction = sum(
-        (
-            (income.thirteenth_month_amount / Decimal(12)).quantize(Decimal("0.01"))
-            for income in incomes
-            if income.thirteenth_month_bucket_id is not None
-        ),
+        (effective_bucket_contribution(b, reductions) for b in saving_buckets),
         Decimal(0),
-    )
-    monthly_saving_buckets = max(
-        monthly_saving_buckets - bucket_thirteenth_reduction, Decimal(0)
     )
     monthly_goal_need = sum(
         (goal.required_monthly_saving(as_of) for goal in savings_goals), Decimal(0)

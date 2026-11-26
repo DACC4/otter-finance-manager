@@ -41,6 +41,14 @@ class SnapshotDetailTests(TestCase):
         snap = calculate_financial_snapshot(self.alice, as_of=date(2025, 1, 1))
         self.assertEqual(snap["monthly_saving_buckets"], Decimal("700.00"))
 
+    def test_thirteenth_month_excess_does_not_cover_other_buckets(self):
+        small = f.bucket(self.alice, "100", name="Small")
+        f.bucket(self.alice, "300", name="Big")
+        # 13th month = 2400, i.e. 200/month, allocated to the 100/month bucket.
+        f.income(self.alice, "2400", months_per_year=13, thirteenth_month_bucket=small)
+        snap = calculate_financial_snapshot(self.alice, as_of=date(2025, 1, 1))
+        self.assertEqual(snap["monthly_saving_buckets"], Decimal(300))
+
     def test_other_users_data_is_ignored(self):
         f.income(self.bob, "9999")
         f.expense(self.bob, "50")

@@ -24,7 +24,12 @@ from .models import (
     UserExpenseTag,
 )
 from .parsing import InvalidPayload, parse_bulk_tags_payload, parse_owned_tag_id
-from .services import calculate_debts, calculate_financial_snapshot
+from .services import (
+    calculate_debts,
+    calculate_financial_snapshot,
+    effective_bucket_contribution,
+    thirteenth_month_bucket_reductions,
+)
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -354,24 +359,14 @@ class SavingBucketListView(LoginRequiredMixin, ListView):
         ctx["user_tags"] = list(
             Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
         )
-        # Per-bucket 13th-month reduction: how much of each bucket's monthly
-        # contribution is already covered by a 13th-month salary lump sum.
-        reductions = {}
-        for income in Income.objects.filter(
-            owner=self.request.user,
-            thirteenth_month_bucket__isnull=False,
-        ):
-            pk = income.thirteenth_month_bucket_id
-            reduction = (income.thirteenth_month_amount / Decimal(12)).quantize(
-                Decimal("0.01")
-            )
-            reductions[pk] = reductions.get(pk, Decimal(0)) + reduction
+        reductions = thirteenth_month_bucket_reductions(
+            Income.objects.filter(owner=self.request.user)
+        )
         ctx["bucket_reductions"] = reductions
-        bucket_by_pk = {b.pk: b for b in ctx["buckets"]}
         ctx["bucket_effective"] = {
-            pk: max(bucket_by_pk[pk].monthly_contribution - reduction, Decimal(0))
-            for pk, reduction in reductions.items()
-            if pk in bucket_by_pk
+            bucket.pk: effective_bucket_contribution(bucket, reductions)
+            for bucket in ctx["buckets"]
+            if bucket.pk in reductions
         }
         return ctx
 
