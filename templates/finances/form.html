@@ -15,6 +15,16 @@
         margin-bottom: 16px;
         font-size: 13px;
     }
+    /* Multi-choice fields as wrapping "chips" instead of a Ctrl-click list box. */
+    .check-list > div { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+    .check-list label {
+        display: inline-flex; align-items: center; gap: 6px; margin: 0;
+        padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px;
+        font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none;
+        color: var(--ink); background: var(--surface); cursor: pointer;
+    }
+    .check-list label:has(input:checked) { border-color: var(--primary); background: var(--surface-2); }
+    .check-list input[type="checkbox"] { width: auto; margin: 0; padding: 0; accent-color: var(--primary); }
     .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
 </style>
 
@@ -26,35 +36,18 @@
             <div class="non-field-errors">{{ form.non_field_errors }}</div>
         {% endif %}
         {% for field in form %}
-            {% if field.name == 'target_month' %}
-                <div id="field_target_month" class="field-wrap">
-                    <label for="id_{{ field.name }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
-                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
-                </div>
-            {% elif field.name == 'thirteenth_month_bucket' %}
-                <div id="field_thirteenth_month_bucket" class="field-wrap">
-                    <label for="id_{{ field.name }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
-                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
-                </div>
-            {% elif field.name == 'thirteenth_month_expense' %}
-                <div id="field_thirteenth_month_expense" class="field-wrap">
-                    <label for="id_{{ field.name }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
-                    {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
-                </div>
+            {% if field.widget_type == 'checkboxselectmultiple' %}
+                <div id="field_{{ field.name }}" class="field-wrap" role="group" aria-labelledby="label_{{ field.name }}">
+                    <label id="label_{{ field.name }}">{{ field.label }}</label>
+                    <div class="check-list">{{ field }}</div>
             {% else %}
-                <div class="field-wrap">
-                    <label for="id_{{ field.name }}">{{ field.label }}</label>
+                <div id="field_{{ field.name }}" class="field-wrap">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
+            {% endif %}
                     {% if field.help_text %}<div class="help-text">{{ field.help_text }}</div>{% endif %}
                     {% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}
                 </div>
-            {% endif %}
         {% endfor %}
         <div class="form-actions">
             <button type="submit">Save</button>

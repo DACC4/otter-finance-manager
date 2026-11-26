@@ -6,10 +6,27 @@ from .models import Expense, Income, SavingBucket, SavingsGoal, Tag, UserExpense
 User = get_user_model()
 
 
+def display_name(obj) -> str:
+    """How a choice reads in forms: people by full name, everything else by name."""
+    if isinstance(obj, User):
+        return obj.get_full_name() or obj.get_username()
+    return obj.name
+
+
+CHECKBOX_FIELDS = ("tags", "shared_with")
+
+
 class UserTagsMixin:
+    """Scope tag choices to the user and make every choice list readable."""
+
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if isinstance(field, forms.ModelChoiceField):
+                field.label_from_instance = display_name
+            if name in CHECKBOX_FIELDS:
+                field.widget = forms.CheckboxSelectMultiple(choices=field.choices)
         if user and "tags" in self.fields:
             self.fields["tags"].queryset = Tag.objects.filter(owner=user)
 
@@ -49,16 +66,12 @@ class IncomeForm(UserTagsMixin, forms.ModelForm):
             "thirteenth_month_expense",
             "tags",
         ]
-        widgets = {
-            "tags": forms.SelectMultiple(attrs={"size": 3}),
-        }
 
 
 class ExpenseForm(UserTagsMixin, forms.ModelForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.none(),
         required=False,
-        widget=forms.SelectMultiple(attrs={"size": 3}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -114,9 +127,6 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
     class Meta:
         model = Expense
         fields = ["name", "amount", "frequency", "target_month", "shared_with", "payer"]
-        widgets = {
-            "shared_with": forms.SelectMultiple(attrs={"size": 3}),
-        }
 
 
 class SavingBucketForm(UserTagsMixin, forms.ModelForm):
@@ -124,7 +134,6 @@ class SavingBucketForm(UserTagsMixin, forms.ModelForm):
         model = SavingBucket
         fields = ["name", "monthly_contribution", "tags", "description"]
         widgets = {
-            "tags": forms.SelectMultiple(attrs={"size": 3}),
             "description": forms.Textarea(attrs={"rows": 2}),
         }
 
@@ -142,7 +151,6 @@ class SavingsGoalForm(UserTagsMixin, forms.ModelForm):
         ]
         widgets = {
             "target_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "tags": forms.SelectMultiple(attrs={"size": 3}),
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 

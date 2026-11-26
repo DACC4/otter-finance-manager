@@ -680,3 +680,21 @@ class MonthNameTests(LoggedInTestCase):
         )
         self.assertIn("target_month", response.context["form"].errors)
         self.assertFalse(Expense.objects.exists())
+
+
+class ReadableFormTests(LoggedInTestCase):
+    def test_choices_use_names_and_multi_choices_are_checkboxes(self):
+        self.bob.first_name, self.bob.last_name = "Bob", "Martin"
+        self.bob.save()
+        f.tag(self.alice, "Home")
+        travel = f.bucket(self.alice, "10", name="Travel")
+        page = self.client.get(reverse("finances:expense_add"))
+        self.assertContains(page, 'type="checkbox" name="tags"')
+        self.assertContains(page, 'type="checkbox" name="shared_with"')
+        self.assertContains(page, "Bob Martin")
+        self.assertNotContains(page, "(alice)")
+        income_page = self.client.get(reverse("finances:income_add"))
+        self.assertContains(
+            income_page, f'<option value="{travel.pk}">Travel</option>', html=True
+        )
+        self.assertNotContains(income_page, "(alice)")
