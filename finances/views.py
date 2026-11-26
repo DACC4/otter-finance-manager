@@ -1,4 +1,3 @@
-import json
 from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -25,6 +24,7 @@ from .models import (
     Tag,
     UserExpenseTag,
 )
+from .parsing import InvalidPayload, parse_bulk_tags_payload, parse_owned_tag_id
 from .services import calculate_debts, calculate_financial_snapshot
 
 
@@ -35,8 +35,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         as_of = timezone.now().date()
-        tag_id = self.request.GET.get("tag") or None
         tags = Tag.objects.filter(owner=user)
+        tag_id = parse_owned_tag_id(
+            self.request.GET.get("tag"), tags.values_list("id", flat=True)
+        )
 
         incomes_qs = Income.objects.filter(owner=user)
         expenses_qs = Expense.objects.filter(
@@ -45,7 +47,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         saving_buckets_qs = SavingBucket.objects.filter(owner=user)
         savings_goals_qs = SavingsGoal.objects.filter(owner=user)
 
-        if tag_id:
+        if tag_id is not None:
             incomes_qs = incomes_qs.filter(tags__id=tag_id)
             expenses_qs = expenses_qs.filter(
                 user_tags__user=user, user_tags__tag_id=tag_id
@@ -500,22 +502,17 @@ class BulkTagsMixin(LoginRequiredMixin, View):
 
     def post(self, request):
         try:
-            body = json.loads(request.body)
-        except ValueError:
-            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
-        action = body.get("action")
-        item_ids = body.get("item_ids", [])
-        tag_ids = body.get("tag_ids", [])
-        if action not in ("add", "remove", "set"):
-            return JsonResponse({"ok": False, "error": "Invalid action."}, status=400)
+            action, item_ids, tag_ids = parse_bulk_tags_payload(request.body)
+        except InvalidPayload as error:
+            return JsonResponse({"ok": False, "error": str(error)}, status=400)
         items = list(self.get_items_queryset(request.user, item_ids))
         tags = list(Tag.objects.filter(owner=request.user, pk__in=tag_ids))
-        if action == "add":
-            self.apply_tags(items, tags)
-        elif action == "remove":
-            self.remove_tags(items, tags)
-        elif action == "set":
-            self.set_tags(items, tags)
+        handlers = {
+            "add": self.apply_tags,
+            "remove": self.remove_tags,
+            "set": self.set_tags,
+        }
+        handlers[action](items, tags)
         return JsonResponse({"ok": True, "updated": len(items)})
 
 

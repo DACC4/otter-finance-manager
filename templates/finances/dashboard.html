@@ -154,7 +154,7 @@
         <select name="tag" onchange="this.form.submit()">
             <option value="">All tags</option>
             {% for tag in tags %}
-                <option value="{{ tag.id }}" {% if tag_filter == tag.id|stringformat:'s' %}selected{% endif %}>{{ tag.name }}</option>
+                <option value="{{ tag.id }}" {% if tag_filter == tag.id %}selected{% endif %}>{{ tag.name }}</option>
             {% endfor %}
         </select>
         <label>Sort</label>

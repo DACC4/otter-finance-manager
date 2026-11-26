@@ -87,6 +87,14 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         else:
             self.fields["payer"].queryset = User.objects.all()
 
+    def clean(self):
+        cleaned = super().clean()
+        payer = cleaned.get("payer")
+        owner = self.instance.owner if self.instance.pk else self._user
+        if payer and payer != owner and payer not in cleaned.get("shared_with", []):
+            self.add_error("payer", "The payer must be one of the participants.")
+        return cleaned
+
     def save(self, commit=True):
         expense = super().save(commit=commit)
         if commit and self._user:

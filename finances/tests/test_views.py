@@ -421,3 +421,76 @@ class BulkTagsTests(LoggedInTestCase):
         self.assertEqual(
             self.client.get(reverse("finances:income_bulk_tags")).status_code, 405
         )
+
+
+class BoundaryTests(LoggedInTestCase):
+    """Untrusted input must be rejected or ignored, never crash with a 500."""
+
+    def bulk(self, payload):
+        return self.client.post(
+            reverse("finances:income_bulk_tags"),
+            json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_dashboard_ignores_non_numeric_tag(self):
+        f.expense(self.alice, "100")
+        response = self.client.get(reverse("finances:dashboard"), {"tag": "abc"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["tag_filter"])
+        self.assertEqual(len(response.context["expenses_data"]), 1)
+
+    def test_dashboard_ignores_other_users_tag(self):
+        f.expense(self.alice, "100")
+        bob_tag = f.tag(self.bob, "Bob")
+        response = self.client.get(reverse("finances:dashboard"), {"tag": bob_tag.id})
+        self.assertIsNone(response.context["tag_filter"])
+        self.assertEqual(len(response.context["expenses_data"]), 1)
+
+    def test_bulk_tags_rejects_malformed_payloads(self):
+        inc = f.income(self.alice, "1")
+        for payload in [
+            ["not", "an", "object"],
+            {"action": "add", "item_ids": "abc", "tag_ids": []},
+            {"action": "add", "item_ids": ["x"], "tag_ids": []},
+            {"action": "add", "item_ids": [inc.pk], "tag_ids": [None]},
+            {"action": "add", "item_ids": [True], "tag_ids": []},
+            {"action": ["add"], "item_ids": [], "tag_ids": []},
+        ]:
+            with self.subTest(payload=payload):
+                response = self.bulk(payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.json()["ok"])
+
+    def test_expense_payer_must_be_a_participant(self):
+        carol = f.user("carol")
+        response = self.client.post(
+            reverse("finances:expense_add"),
+            {
+                "name": "Rent",
+                "amount": "100",
+                "frequency": "monthly",
+                "shared_with": [self.bob.pk],
+                "payer": carol.pk,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("payer", response.context["form"].errors)
+        self.assertFalse(Expense.objects.exists())
+
+    def test_expense_payer_can_be_owner_or_shared_user(self):
+        for payer in (self.alice, self.bob):
+            self.client.post(
+                reverse("finances:expense_add"),
+                {
+                    "name": f"Rent {payer}",
+                    "amount": "100",
+                    "frequency": "monthly",
+                    "shared_with": [self.bob.pk],
+                    "payer": payer.pk,
+                },
+            )
+        self.assertEqual(
+            set(Expense.objects.values_list("payer", flat=True)),
+            {self.alice.pk, self.bob.pk},
+        )
