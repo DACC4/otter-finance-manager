@@ -315,10 +315,14 @@ class CrudTests(LoggedInTestCase):
         ]:
             response = self.client.get(reverse(f"finances:{name}"))
             self.assertEqual(response.status_code, 200, name)
-        ctx = self.client.get(reverse("finances:income_list")).context
-        self.assertEqual(
-            ctx["user_tags"], [{"id": home.id, "name": "Home", "color": "#112233"}]
-        )
+        f.tag(self.bob, "Not mine")
+        for name in ["income_list", "expense_list", "bucket_list", "goal_list"]:
+            ctx = self.client.get(reverse(f"finances:{name}")).context
+            self.assertEqual(
+                ctx["user_tags"],
+                [{"id": home.id, "name": "Home", "color": "#112233"}],
+                name,
+            )
 
     def test_bucket_list_shows_thirteenth_month_reduction(self):
         travel = f.bucket(self.alice, "800")

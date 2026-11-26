@@ -110,31 +110,32 @@ class OwnerCheckMixin(UserPassesTestMixin):
         return HttpResponseForbidden("You don't have permission to edit this.")
 
 
-class OwnerCreateMixin(LoginRequiredMixin):
+class UserFormKwargsMixin:
+    """Forms scope their choices (tags, buckets, users) to the current user."""
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+
+class OwnerCreateMixin(LoginRequiredMixin, UserFormKwargsMixin):
     def form_valid(self, form):
         form.instance.owner = self.request.user
         return super().form_valid(form)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+
+class OwnerUpdateMixin(LoginRequiredMixin, OwnerCheckMixin, UserFormKwargsMixin):
+    pass
 
 
-class OwnerUpdateMixin(LoginRequiredMixin, OwnerCheckMixin):
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-
-class IncomeListView(LoginRequiredMixin, ListView):
-    model = Income
-    template_name = "finances/income_list.html"
-    context_object_name = "incomes"
+class OwnedListMixin(LoginRequiredMixin):
+    """List only the current user's own objects."""
 
     def get_queryset(self):
-        return Income.objects.filter(owner=self.request.user)
+        return self.model.objects.filter(owner=self.request.user)
+
+
+class UserTagsContextMixin:
+    """Expose the user's tags to the bulk-tagging toolbar."""
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -142,6 +143,12 @@ class IncomeListView(LoginRequiredMixin, ListView):
             Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
         )
         return ctx
+
+
+class IncomeListView(OwnedListMixin, UserTagsContextMixin, ListView):
+    model = Income
+    template_name = "finances/income_list.html"
+    context_object_name = "incomes"
 
 
 class IncomeCreateView(OwnerCreateMixin, CreateView):
@@ -166,7 +173,7 @@ class IncomeDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     success_url = reverse_lazy("finances:income_list")
 
 
-class ExpenseListView(LoginRequiredMixin, ListView):
+class ExpenseListView(LoginRequiredMixin, UserTagsContextMixin, ListView):
     model = Expense
     template_name = "finances/expense_list.html"
     context_object_name = "expenses"
@@ -177,9 +184,6 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["debts"] = calculate_debts(self.request.user)
-        ctx["user_tags"] = list(
-            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
-        )
         return ctx
 
 
@@ -191,7 +195,7 @@ class ExpenseCreateView(OwnerCreateMixin, CreateView):
     extra_context = {"title": "Add expense"}
 
 
-class ExpenseUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
+class ExpenseUpdateView(OwnerUpdateMixin, UpdateView):
     model = Expense
     form_class = ExpenseForm
     template_name = "finances/form.html"
@@ -202,11 +206,6 @@ class ExpenseUpdateView(LoginRequiredMixin, OwnerCheckMixin, UpdateView):
         # Allow the owner or any participant (shared_with) to edit the expense
         return self.get_object().has_participant(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
 
 class ExpenseDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     model = Expense
@@ -214,19 +213,13 @@ class ExpenseDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     success_url = reverse_lazy("finances:expense_list")
 
 
-class SavingBucketListView(LoginRequiredMixin, ListView):
+class SavingBucketListView(OwnedListMixin, UserTagsContextMixin, ListView):
     model = SavingBucket
     template_name = "finances/bucket_list.html"
     context_object_name = "buckets"
 
-    def get_queryset(self):
-        return SavingBucket.objects.filter(owner=self.request.user)
-
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["user_tags"] = list(
-            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
-        )
         reductions = thirteenth_month_bucket_reductions(
             Income.objects.filter(owner=self.request.user)
         )
@@ -261,20 +254,10 @@ class SavingBucketDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     success_url = reverse_lazy("finances:bucket_list")
 
 
-class SavingsGoalListView(LoginRequiredMixin, ListView):
+class SavingsGoalListView(OwnedListMixin, UserTagsContextMixin, ListView):
     model = SavingsGoal
     template_name = "finances/goal_list.html"
     context_object_name = "goals"
-
-    def get_queryset(self):
-        return SavingsGoal.objects.filter(owner=self.request.user)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["user_tags"] = list(
-            Tag.objects.filter(owner=self.request.user).values("id", "name", "color")
-        )
-        return ctx
 
 
 class SavingsGoalCreateView(OwnerCreateMixin, CreateView):
@@ -299,13 +282,10 @@ class SavingsGoalDeleteView(LoginRequiredMixin, OwnerCheckMixin, DeleteView):
     success_url = reverse_lazy("finances:goal_list")
 
 
-class TagListView(LoginRequiredMixin, ListView):
+class TagListView(OwnedListMixin, ListView):
     model = Tag
     template_name = "finances/tag_list.html"
     context_object_name = "tags"
-
-    def get_queryset(self):
-        return Tag.objects.filter(owner=self.request.user)
 
 
 class TagCreateView(OwnerCreateMixin, CreateView):
