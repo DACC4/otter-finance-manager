@@ -50,10 +50,9 @@ echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsaf
 # 2. Build and start (PostgreSQL + gunicorn on port 8000)
 docker compose up --build -d
 
-# 3. Apply migrations
-docker compose exec web python manage.py migrate
+# Migrations run automatically when the web container starts.
 
-# 4. Create your user
+# 3. Create your user
 docker compose exec web python manage.py createsuperuser
 ```
 
@@ -72,6 +71,22 @@ Open http://localhost:8000.
 | `DJANGO_HTTPS` | `False` | `true` makes session/CSRF cookies HTTPS-only. Enable when the site is served over HTTPS |
 | `DJANGO_BEHIND_PROXY` | `False` | `true` trusts `X-Forwarded-Proto` from your reverse proxy, and takes the client IP for login throttling from the right-most `X-Forwarded-For` entry. Only for exactly one proxy that always sets both |
 | `DJANGO_HSTS_SECONDS` | `0` | Send HSTS for this many seconds (start small, e.g. `3600`; browsers cache it) |
+
+### Backup and restore
+
+All data lives in the PostgreSQL volume `db-data`. Back it up with `pg_dump` (run from the folder with `docker-compose.yml`):
+
+```bash
+# Backup to a dated file (custom format: compressed, restorable with pg_restore)
+docker compose exec -T db pg_dump -U otter -d otter --format=custom > otter-$(date +%F).dump
+
+# Restore: stop the app, replace the database contents, start the app again
+docker compose stop web
+docker compose exec -T db pg_restore -U otter -d otter --clean --if-exists --no-owner < otter-2026-11-26.dump
+docker compose start web
+```
+
+Keep dumps somewhere other than this machine. Schedule the backup line with cron or a systemd timer for regular backups. These commands were tested end to end (backup, wipe, restore, data back) with the bundled `docker-compose.yml`; adjust the user and database names if yours differ.
 
 ### Using the published image
 
