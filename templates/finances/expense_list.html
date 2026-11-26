@@ -47,7 +47,7 @@
                 <td><strong>{{ expense.name }}</strong></td>
                 <td class="mono">{% amount expense|share_for:user %}</td>
                 <td class="muted">{{ expense.get_frequency_display }}</td>
-                <td class="muted">{{ expense.target_month|default:"—" }}</td>
+                <td class="muted" data-val="{{ expense.target_month|default:0 }}">{{ expense.get_target_month_display|default:"—" }}</td>
                 <td>
                     {% if expense.payer %}
                         <span class="pill {% if expense.payer == user %}pill-me{% endif %}">

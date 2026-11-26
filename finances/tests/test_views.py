@@ -654,3 +654,29 @@ class FeedbackMessageTests(LoggedInTestCase):
             "Cancel</a>",
             html=True,
         )
+
+
+class MonthNameTests(LoggedInTestCase):
+    def test_due_month_is_shown_by_name_and_sorts_by_number(self):
+        f.annual_expense(self.alice, "1200", 3, name="Tax")
+        f.annual_expense(self.alice, "1200", date.today().month, name="Insurance")
+        page = self.client.get(reverse("finances:expense_list"))
+        self.assertContains(
+            page, '<td class="muted" data-val="3">March</td>', html=True
+        )
+        dashboard = self.client.get(reverse("finances:dashboard"))
+        month = date.today().strftime("%B")
+        self.assertContains(dashboard, f'<td class="muted">{month}</td>', html=True)
+
+    def test_month_outside_1_to_12_is_rejected(self):
+        response = self.client.post(
+            reverse("finances:expense_add"),
+            {
+                "name": "Tax",
+                "amount": "10",
+                "frequency": "annual",
+                "target_month": "13",
+            },
+        )
+        self.assertIn("target_month", response.context["form"].errors)
+        self.assertFalse(Expense.objects.exists())

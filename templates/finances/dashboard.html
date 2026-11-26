@@ -310,7 +310,7 @@
             <tr class="clickable-row" onclick="window.location.href='{% url 'finances:expense_edit' expense.pk %}';">
                 <td>{{ expense.name }}</td>
                 <td class="mono">{% amount expense|annual_share_for:user %}</td>
-                <td class="muted">{{ expense.target_month|default:"—" }}</td>
+                <td class="muted">{{ expense.get_target_month_display|default:"—" }}</td>
                 <td>{% for tag in expense|tags_for:user %}<span class="tag" style="background:{{ tag.color }}22;color:{{ tag.color }};">{{ tag.name }}</span> {% endfor %}</td>
             </tr>
             {% empty %}

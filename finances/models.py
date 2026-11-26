@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Prefetch, Q
 from django.utils import timezone
+from django.utils.dates import MONTHS
 
 
 class Frequency(models.TextChoices):
@@ -125,7 +126,8 @@ class Expense(models.Model):
     target_month = models.PositiveSmallIntegerField(
         blank=True,
         null=True,
-        help_text="Month (1-12) when this annual expense is paid",
+        choices=list(MONTHS.items()),
+        help_text="Month when this annual expense is paid",
     )
     shared_with = models.ManyToManyField(
         settings.AUTH_USER_MODEL,

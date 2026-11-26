@@ -1,5 +1,3 @@
-import calendar
-
 from django import forms
 from django.contrib.auth import get_user_model
 
@@ -118,10 +116,6 @@ class ExpenseForm(UserTagsMixin, forms.ModelForm):
         fields = ["name", "amount", "frequency", "target_month", "shared_with", "payer"]
         widgets = {
             "shared_with": forms.SelectMultiple(attrs={"size": 3}),
-            "target_month": forms.Select(
-                choices=[("", "---------")]
-                + [(i, calendar.month_name[i]) for i in range(1, 13)],
-            ),
         }
 
 
